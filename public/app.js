@@ -553,17 +553,17 @@ const tmdbBox = $('#tmdbResults');
 async function searchTmdb() {
   const q = tmdbInput?.value.trim();
   if (!q) return;
-  tmdbBox.innerHTML = '<p class="muted">Searching TMDB database…</p>';
+  tmdbBox.innerHTML = '<p class="muted">Searching database…</p>';
   try {
     const data = await api('/admin/tmdb/search?q=' + encodeURIComponent(q));
     if (!data.results || !data.results.length) {
-      tmdbBox.innerHTML = '<p class="muted">No matching titles found on TMDB for “' + esc(q) + '”.</p>';
+      tmdbBox.innerHTML = '<p class="muted">No matching titles found for “' + esc(q) + '”.</p>';
       return;
     }
     tmdbBox.innerHTML = data.results.map(r => `
       <div style="background:#18181c; border-radius:10px; overflow:hidden; border:1px solid #333; display:flex; flex-direction:column;">
         <div style="position:relative; width:100%; aspect-ratio:2/3; background:#000;">
-          ${r.poster ? `<img src="${esc(r.poster)}" style="width:100%; height:100%; object-fit:cover;" alt="${esc(r.title)}" />` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;">No Poster</div>'}
+          ${r.poster ? `<img src="${esc(posterUrl(r.poster))}" style="width:100%; height:100%; object-fit:cover;" alt="${esc(r.title)}" />` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;">No Poster</div>'}
           <span style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.8); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase;">${esc(r.kind)}</span>
         </div>
         <div style="padding:10px; display:flex; flex-direction:column; flex:1;">
@@ -572,7 +572,7 @@ async function searchTmdb() {
           <div style="margin-top:auto;">
             ${r.alreadyImported
               ? '<button class="btn btn-block" disabled style="opacity:0.85; font-size:11px; padding:6px 8px; background:#122018; color:#00E676; border:1px solid #00E676;">✓ In CineMax</button>'
-              : `<button class="btn btn-primary btn-block tmdb-import-btn" data-tmdb="${r.id}" data-kind="${r.kind}" style="font-size:11px; padding:6px 8px;">+ Import to CineMax</button>`}
+              : `<button class="btn btn-primary btn-block tmdb-import-btn" data-tmdb="${r.id}" data-kind="${r.kind}" style="font-size:11px; padding:6px 8px;">+ Add to CineMax</button>`}
           </div>
         </div>
       </div>
