@@ -437,6 +437,15 @@ document.addEventListener('keydown', e => {
   if (e.key === '/' && !/input|textarea|select/i.test(document.activeElement.tagName)) { e.preventDefault(); $('#searchInput').focus(); }
 });
 
+// Ad Shield: Prevent embedded streaming players from hijacking top-level page
+window.addEventListener('beforeunload', (e) => {
+  const modal = $('#playerModal');
+  if (modal && modal.classList.contains('open')) {
+    e.preventDefault();
+    return (e.returnValue = 'Leave CineMax player?');
+  }
+});
+
 /* ---------------- my list / downloads ---------------- */
 async function loadMyList() {
   const grid = $('#myListGrid'); grid.innerHTML = '<p class="muted">Loading…</p>';
