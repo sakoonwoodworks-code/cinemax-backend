@@ -625,19 +625,8 @@ $('#addTitleForm').addEventListener('submit', async ev => {
 /* ---------------- boot ---------------- */
 (async function init() {
   if (!store.token) {
-    try {
-      const d = await api('/auth/login', { method: 'POST', body: { email: 'demo@cinemax.app', password: 'Demo@123' } });
-      store.token = d.token;
-      const me = await api('/auth/me');
-      store.user = me.user;
-      store.profileId = String(me.profiles[0].id);
-      renderAccount(me);
-      await bootData();
-      return;
-    } catch {
-      openAuth(false);
-      return;
-    }
+    openAuth(false);
+    return;
   }
   try {
     const me = await api('/auth/me');
@@ -646,16 +635,6 @@ $('#addTitleForm').addEventListener('submit', async ev => {
     renderAccount(me);
     await bootData();
   } catch (e) {
-    try {
-      const d = await api('/auth/login', { method: 'POST', body: { email: 'demo@cinemax.app', password: 'Demo@123' } });
-      store.token = d.token;
-      const me = await api('/auth/me');
-      store.user = me.user;
-      store.profileId = String(me.profiles[0].id);
-      renderAccount(me);
-      await bootData();
-    } catch {
-      openAuth(false);
-    }
+    signOut(true);
   }
 })();
