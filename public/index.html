@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="referrer" content="no-referrer" />
+<meta name="theme-color" content="#080808" />
+<title>CineMax — Watch Premium Movies &amp; Web Series</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23080808'/%3E%3Cpath d='M14 46V18l9 14 9-14v28M36 18h12M36 32h12M36 46h12' stroke='%23E50914' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/styles.css?v=3" />
+</head>
+<body>
+<header class="topbar" id="topbar">
+  <div class="topbar-inner">
+    <a class="logo" href="#" onclick="go('home');return false"><span class="logo-badge">M</span>CINEMAX</a>
+    <nav class="topnav">
+      <button data-nav="home" class="active">Home</button>
+      <button data-nav="movies">Movies</button>
+      <button data-nav="series">Web Series</button>
+      <button data-nav="mylist">My List</button>
+      <button data-nav="downloads">Downloads</button>
+    </nav>
+    <div class="searchbox" id="searchbox">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+      <input id="searchInput" type="text" placeholder="Search movies, actors, genres…" autocomplete="off" spellcheck="false" />
+      <kbd>/</kbd>
+      <div class="suggest" id="suggest"></div>
+    </div>
+    <div class="account">
+      <button class="icon-btn" id="adminBtn" title="Admin dashboard" style="display:none">⚙</button>
+      <button class="avatar" id="avatarBtn" title="Profile">D</button>
+      <div class="menu" id="menu">
+        <div class="menu-head"><div class="menu-name" id="menuName">Demo</div><div class="menu-sub" id="menuEmail">demo@cinemax.app</div></div>
+        <div class="menu-label">Switch profile</div>
+        <div id="profileList"></div>
+        <button id="menuSignout" class="menu-item danger">Sign out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="view-home" class="view active">
+  <section class="hero" id="hero">
+    <div class="hero-backdrop" id="heroBackdrop"></div>
+    <div class="hero-fade"></div>
+    <div class="hero-content" id="heroContent"><div class="hero-kicker">CINEMAX ORIGINAL</div><h1 class="hero-title">Loading…</h1></div>
+  </section>
+  <div class="home-filter-bar" id="homeFilterBar" style="max-width:1720px;margin:18px auto 0;padding:0 4vw;display:flex;gap:10px;align-items:center;">
+    <button class="chip active" data-home-kind="">⚡ All</button>
+    <button class="chip" data-home-kind="movie">🍿 Movies</button>
+    <button class="chip" data-home-kind="series">📺 Web Series</button>
+  </div>
+  <div class="rails" id="rails"><div class="skeleton-rail"></div><div class="skeleton-rail"></div></div>
+</main>
+
+<main id="view-grid" class="view">
+  <div class="grid-head"><h2 id="gridTitle">Movies</h2><div class="chips" id="genreChips"></div></div>
+  <div class="card-grid" id="cardGrid"></div>
+</main>
+
+<main id="view-mylist" class="view">
+  <div class="grid-head"><h2>My List</h2><p class="muted">Saved to this profile. Stored on the CineMax server.</p></div>
+  <div class="card-grid" id="myListGrid"></div>
+</main>
+
+<main id="view-downloads" class="view">
+  <div class="grid-head"><h2>Downloads</h2><p class="muted">Only titles whose license allows offline viewing can be downloaded. Others show a clear reason.</p></div>
+  <div id="downloadsList" class="dl-list"></div>
+</main>
+
+<main id="view-search" class="view">
+  <div class="grid-head"><h2 id="searchHeading">Results</h2><div class="sortbar"><select id="sortSelect"><option value="popularity">Sort: Popularity</option><option value="rating">Sort: Rating</option><option value="newest">Sort: Release date</option><option value="title">Sort: Title A–Z</option></select></div></div>
+  <div class="card-grid" id="searchGrid"></div>
+</main>
+
+<main id="view-admin" class="view">
+  <div class="grid-head"><h2>Admin Dashboard</h2><p class="muted">Role-based: only admin tokens can call these endpoints.</p></div>
+  <div class="admin-stats" id="adminStats"></div>
+  <div class="admin-cols">
+    <section class="panel" style="grid-column: 1 / -1; background: #161214; border: 1px solid #3d1a22; border-radius: 12px; padding: 18px;">
+      <h3 style="color:#ff5e62; display: flex; align-items: center; gap: 8px;">⚡ 1-Click TMDB Importer (Search &amp; Add Indian Movies &amp; Series)</h3>
+      <p class="muted" style="margin-bottom:14px; font-size: 13px;">Instant alternative way: search any Indian movie, OTT web series, or Hollywood title (e.g. <i>Panchayat, Stree 2, Pushpa 2, The Family Man, Pirates of the Caribbean, Farzi, Asur</i>) to immediately add it to CineMax with official TMDB posters, metadata, and all 11 streaming servers.</p>
+      <div style="display:flex; gap:10px; margin-bottom:16px;">
+        <input id="tmdbSearchInput" placeholder="Search title on TMDB (e.g. Panchayat, Stree 2, Pushpa 2)..." style="flex:1; background:#0c0c0e; border:1px solid #333; color:#fff; padding:10px 14px; border-radius:8px;" />
+        <button id="tmdbSearchBtn" class="btn btn-primary" type="button" style="white-space:nowrap; padding:10px 20px;">Search TMDB</button>
+      </div>
+      <div id="tmdbResults" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:14px; max-height:450px; overflow-y:auto; padding-right:4px;"></div>
+    </section>
+    <section class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0">Users</h3>
+        <button id="showAddUserBtn" class="btn btn-small btn-primary" type="button" style="padding:6px 14px; font-size:12px;">+ Add New User</button>
+      </div>
+      <div id="addUserBox" style="display:none; background:#19191c; border:1px solid #333; border-radius:10px; padding:14px; margin-bottom:14px;">
+        <h4 style="margin:0 0 10px; font-size:13px; color:#fff;">Create New User Account</h4>
+        <form id="addUserForm" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <input name="name" placeholder="Full name *" required style="background:#0c0c0e; border:1px solid #333; color:#fff; padding:8px 10px; border-radius:6px; font-size:13px;" />
+          <input name="email" type="email" placeholder="Email address *" required style="background:#0c0c0e; border:1px solid #333; color:#fff; padding:8px 10px; border-radius:6px; font-size:13px;" />
+          <input name="password" type="password" placeholder="Password (min 8 chars) *" required minlength="8" style="background:#0c0c0e; border:1px solid #333; color:#fff; padding:8px 10px; border-radius:6px; font-size:13px;" />
+          <select name="role" style="background:#0c0c0e; border:1px solid #333; color:#fff; padding:8px 10px; border-radius:6px; font-size:13px;">
+            <option value="user">User (Standard Access)</option>
+            <option value="admin">Admin (Full Control)</option>
+          </select>
+          <div style="grid-column:1/-1; display:flex; gap:8px; justify-content:flex-end;">
+            <button type="button" id="cancelAddUserBtn" class="btn btn-small btn-ghost">Cancel</button>
+            <button type="submit" class="btn btn-small btn-primary">Create User</button>
+          </div>
+        </form>
+      </div>
+      <div id="adminUsers" class="tableish"></div>
+    </section>
+    <section class="panel"><h3>Add title</h3>
+      <form id="addTitleForm" class="form-grid">
+        <input name="title" placeholder="Title *" required />
+        <select name="kind"><option value="movie">Movie</option><option value="series">Web series</option></select>
+        <input name="year" type="number" placeholder="Year" min="1888" max="2030" />
+        <input name="rating" type="number" step="0.1" placeholder="IMDb rating" />
+        <input name="genres" placeholder="Genres (comma separated)" />
+        <input name="audioLanguages" placeholder="Audio langs (e.g. en,hi)" />
+        <input name="director" placeholder="Director" />
+        <input name="license" placeholder="License / provider" />
+        <input name="streamUrl" placeholder="HTTPS stream URL (optional)" style="grid-column:1/-1" />
+        <button type="submit" class="btn btn-primary" style="grid-column:1/-1">Add to catalog</button>
+      </form>
+      <p class="hint">Only HTTPS streams are accepted. Streams you add here become playable instantly for all profiles.</p>
+    </section>
+  </div>
+  <section class="panel"><h3>Most watched</h3><div id="adminTop" class="tableish"></div></section>
+</main>
+
+<!-- Details modal -->
+<div class="modal" id="detailsModal"><div class="modal-backdrop" data-close="detailsModal"></div>
+  <div class="modal-card" id="detailsCard"></div>
+</div>
+<!-- Video player modal -->
+<div class="modal modal-player" id="playerModal"><div class="modal-backdrop dark" data-close="playerModal"></div>
+  <div class="player-shell" style="width:min(1280px, 96vw); max-height:94vh; display:flex; flex-direction:column; background:#000; border-radius:14px; overflow:hidden; position:relative; box-shadow:0 24px 70px rgba(0,0,0,0.92); border:1px solid #282828;">
+    <button class="player-close" data-close="playerModal" aria-label="Close player">✕</button>
+    <div id="playerFrameContainer" class="player-frame-box" style="width:100%; aspect-ratio:16/9; max-height:78vh; min-height:460px; background:#000; position:relative; display:flex; align-items:stretch;">
+      <video id="video" playsinline controls preload="metadata" style="width:100%; height:100%; object-fit:contain; background:#000; display:none;"></video>
+      <iframe id="playerIframe" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" allowfullscreen="true" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" referrerpolicy="no-referrer" style="width:100%; height:100%; border:none; display:none; background:#000;"></iframe>
+    </div>
+    <div class="player-meta">
+      <div style="flex:1">
+        <div class="player-title" id="playerTitle"></div>
+        <div class="player-sub" id="playerSub"></div>
+      </div>
+      <span style="background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.3);padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;">🛡️ Ad Shield Active</span>
+      <div id="serverPicker" style="display:flex;align-items:center;gap:8px;margin-right:10px;">
+        <label for="serverSelect" style="color:var(--muted);font-size:12px;font-weight:600;">Server:</label>
+        <select id="serverSelect" style="background:#1c1c1e;color:#fff;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;"></select>
+      </div>
+      <button class="btn btn-small btn-ghost" id="nextEpisodeBtn" style="display:none">Next episode →</button>
+    </div>
+  </div>
+</div>
+<!-- Auth modal -->
+<div class="modal" id="authModal"><div class="modal-backdrop"></div>
+  <div class="auth-card">
+    <div class="auth-logo">CINEMAX</div>
+    <h2 id="authTitle">Welcome back</h2>
+    <p class="muted" id="authSub">Sign in to continue watching</p>
+    <form id="authForm">
+      <input name="name" id="authName" placeholder="Full name" autocomplete="name" style="display:none" />
+      <input name="email" type="email" placeholder="Email" required autocomplete="email" />
+      <input name="password" type="password" placeholder="Password (min 8 chars)" required minlength="8" autocomplete="current-password" />
+      <button type="submit" class="btn btn-primary btn-block" id="authSubmit">Sign In</button>
+    </form>
+    <div class="auth-foot">
+      <button class="linklike" id="authToggle">New to CineMax? <b>Sign up</b></button>
+      <button class="linklike" id="forgotLink">Forgot password?</button>
+    </div>
+    <div class="demo-creds">Demo: <code>demo@cinemax.app / Demo@123</code><br/>Admin: <code>admin@cinemax.app / Admin@123</code></div>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/app.js?v=3"></script>
+</body>
+</html>

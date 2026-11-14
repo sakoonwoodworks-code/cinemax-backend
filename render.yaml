@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: cinemax-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@cinemax.app
+      - key: ADMIN_PASSWORD
+        value: Admin@123
