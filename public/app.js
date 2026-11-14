@@ -299,7 +299,7 @@ async function loadDetails(id, pushState = true) {
         <button class="btn btn-ghost" id="dShare">↗&nbsp; Share</button>
         <button class="btn btn-ghost" id="dDownload">⬇&nbsp; Download</button>
       </div>
-      ${!d.playable ? `<div class="unavailable"><b>Streaming currently unavailable.</b><br/>This title’s metadata is shown, but no licensed playback source is configured. The CineMax catalog admin can add an authorized stream from the Admin Dashboard, or configure a licensed provider. TMDB/OMDb supply metadata only — never video.</div>` : ''}
+      ${!d.playable ? `<div class="unavailable"><b>Streaming currently unavailable.</b><br/>This title’s metadata is shown, but no licensed playback source is configured. The CineMax catalog admin can add an authorized stream from the Admin Dashboard, or configure a licensed provider. External catalogs supply metadata only — never video.</div>` : ''}
       <div class="details-cols">
         <div>
           <div class="menu-label" style="color:var(--muted-2)">TOP CAST</div>
