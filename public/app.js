@@ -378,6 +378,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       if (manifest.type === 'embed' || selectedUrl.includes('http')) {
         video.pause();
         video.style.display = 'none';
+        applyAdShieldToIframe(iframe);
         iframe.src = selectedUrl;
         iframe.style.display = 'block';
         toast('Switched server: ' + serverSelect.options[serverSelect.selectedIndex].text);
@@ -388,9 +389,10 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   }
 
   if (manifest.type === 'embed') {
-    // Embed iframe player (VidFast, VidSrc, VsEmbed, Embed.su, etc.)
+    // Embed iframe player (AutoEmbed, VsEmbed, VidSrc, VidFast, etc.)
     video.pause();
     video.style.display = 'none';
+    applyAdShieldToIframe(iframe);
     iframe.src = manifest.url;
     iframe.style.display = 'block';
   } else {
@@ -437,10 +439,65 @@ document.addEventListener('keydown', e => {
   if (e.key === '/' && !/input|textarea|select/i.test(document.activeElement.tagName)) { e.preventDefault(); $('#searchInput').focus(); }
 });
 
+// Ad Shield System: Blocks all iframe click pop-up ads, new tabs, and tab hijacking
+const SANDBOX_PERMISSIONS = 'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock';
+let adShieldEnabled = true;
+
+function applyAdShieldToIframe(ifr) {
+  if (!ifr) return;
+  if (adShieldEnabled) {
+    ifr.setAttribute('sandbox', SANDBOX_PERMISSIONS);
+  } else {
+    ifr.removeAttribute('sandbox');
+  }
+}
+
+const adShieldBadge = $('#adShieldBadge');
+if (adShieldBadge) {
+  adShieldBadge.style.cursor = 'pointer';
+  adShieldBadge.onclick = () => {
+    adShieldEnabled = !adShieldEnabled;
+    const ifr = $('#playerIframe');
+    if (ifr) {
+      if (adShieldEnabled) {
+        ifr.setAttribute('sandbox', SANDBOX_PERMISSIONS);
+        adShieldBadge.innerHTML = '🛡️ Ad Shield Active';
+        adShieldBadge.style.background = 'rgba(0,230,118,0.15)';
+        adShieldBadge.style.color = '#00e676';
+        adShieldBadge.style.borderColor = 'rgba(0,230,118,0.3)';
+        toast('🛡️ Ad Shield ON: Pop-up ads & new window tabs blocked');
+      } else {
+        ifr.removeAttribute('sandbox');
+        adShieldBadge.innerHTML = '⚠️ Ad Shield Paused';
+        adShieldBadge.style.background = 'rgba(255,171,0,0.15)';
+        adShieldBadge.style.color = '#ffab00';
+        adShieldBadge.style.borderColor = 'rgba(255,171,0,0.3)';
+        toast('⚠️ Ad Shield OFF: Compatibility mode');
+      }
+      const cur = ifr.src;
+      if (cur && cur !== 'about:blank') {
+        ifr.src = 'about:blank';
+        setTimeout(() => { ifr.src = cur; }, 80);
+      }
+    }
+  };
+}
+
+// Override window.open on top-level window so embedded ad scripts can never pop new windows
+const _origWindowOpen = window.open;
+window.open = function(url, target, features) {
+  const modal = $('#playerModal');
+  if (modal && modal.classList.contains('open') && adShieldEnabled) {
+    console.warn('[AdShield] Blocked popup window.open:', url);
+    return null;
+  }
+  return _origWindowOpen.apply(this, arguments);
+};
+
 // Ad Shield: Prevent embedded streaming players from hijacking top-level page
 window.addEventListener('beforeunload', (e) => {
   const modal = $('#playerModal');
-  if (modal && modal.classList.contains('open')) {
+  if (modal && modal.classList.contains('open') && adShieldEnabled) {
     e.preventDefault();
     return (e.returnValue = 'Leave CineMax player?');
   }
