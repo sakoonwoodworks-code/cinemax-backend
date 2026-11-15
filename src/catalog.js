@@ -3,6 +3,8 @@ const db = require('./db');
 const { authRequired, publicUser } = require('./auth');
 const { csv, mapTitle, kidsFilter, pageParams, track } = require('./util');
 const { getPlayerSources, PLAYER_SOURCES } = require('./playerSources');
+const { searchUniversal, autoIndexTitle } = require('./universalCatalog');
+const { searchOmdb, getOmdbById } = require('./omdb');
 
 const router = express.Router();
 
@@ -300,14 +302,25 @@ router.get('/recommendations', authRequired, (req, res) => {
   });
 });
 
-router.get('/search', authRequired, (req, res) => {
+router.get('/search', authRequired, async (req, res) => {
   const q = String(req.query.q || '').trim();
   const { page, limit, offset } = pageParams(req.query, 20);
   const isKids = req.query.kids === '1';
+
+  // Real-time Universal Discovery (TMDB + OMDb):
+  // When a user searches any title or IMDb ID, automatically find & index it
+  if (q.length >= 2) {
+    try {
+      await searchUniversal(q);
+    } catch (err) {
+      console.warn('[Search] Universal auto-index error:', err.message);
+    }
+  }
+
   let where = 'WHERE 1=1 ' + kidsFilter(isKids);
   const args = {};
   if (q) {
-    where += ` AND (title LIKE @q OR director LIKE @q OR cast_json LIKE @q OR genres LIKE @q OR overview LIKE @q OR slug LIKE @q)`;
+    where += ` AND (title LIKE @q OR director LIKE @q OR cast_json LIKE @q OR genres LIKE @q OR overview LIKE @q OR slug LIKE @q OR imdb_id LIKE @q)`;
     args.q = `%${q}%`;
   }
   if (req.query.genre) { where += " AND ','||genres||',' LIKE '%,'||@genre||',%'"; args.genre = String(req.query.genre); }
@@ -368,86 +381,83 @@ function fetchTmdbJson(url) {
   });
 }
 
-// 1-Click TMDB Importer search (available to both APK and Web)
+// 1-Click Multi-API Importer search (TMDB + OMDb) (available to both APK and Web)
 router.get('/catalog/tmdb/search', authRequired, async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json({ results: [] });
-  const data = await fetchTmdbJson(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(q)}`);
-  const results = (data.results || [])
-    .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-    .map(r => {
-      const exists = db.prepare('SELECT id FROM titles WHERE tmdb_id=?').get(r.id);
-      return {
-        id: r.id,
-        title: r.title || r.name,
-        kind: r.media_type === 'tv' ? 'series' : 'movie',
-        year: parseInt(String(r.release_date || r.first_air_date || '').slice(0, 4), 10) || null,
-        rating: r.vote_average ? Number(r.vote_average.toFixed(1)) : null,
-        overview: r.overview || '',
-        poster: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
-        backdrop: r.backdrop_path ? `https://image.tmdb.org/t/p/w1280${r.backdrop_path}` : null,
-        alreadyImported: !!exists,
-        localId: exists ? exists.id : null
-      };
+
+  const [tmdbData, omdbResults] = await Promise.all([
+    fetchTmdbJson(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(q)}`),
+    searchOmdb(q)
+  ]);
+
+  const candidates = [];
+  for (const r of (tmdbData.results || [])) {
+    if (r.media_type !== 'movie' && r.media_type !== 'tv') continue;
+    const exists = db.prepare('SELECT id FROM titles WHERE tmdb_id=?').get(r.id);
+    candidates.push({
+      id: r.id,
+      tmdbId: r.id,
+      imdbId: null,
+      title: r.title || r.name,
+      kind: r.media_type === 'tv' ? 'series' : 'movie',
+      year: parseInt(String(r.release_date || r.first_air_date || '').slice(0, 4), 10) || null,
+      rating: r.vote_average ? Number(r.vote_average.toFixed(1)) : null,
+      overview: r.overview || '',
+      poster: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+      backdrop: r.backdrop_path ? `https://image.tmdb.org/t/p/w1280${r.backdrop_path}` : null,
+      alreadyImported: !!exists,
+      localId: exists ? exists.id : null,
+      source: 'TMDB'
     });
-  res.json({ results });
-});
+  }
 
-// 1-Click TMDB Import action (available to both APK and Web)
-router.post('/catalog/tmdb/import', authRequired, async (req, res) => {
-  const { tmdbId, kind } = req.body || {};
-  if (!tmdbId) return res.status(400).json({ error: 'VALIDATION', message: 'tmdbId is required.' });
-  const type = kind === 'series' || kind === 'tv' ? 'tv' : 'movie';
-  const data = await fetchTmdbJson(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${API_KEY}`);
-  const title = data.title || data.name;
-  if (!title) return res.status(404).json({ error: 'NOT_FOUND', message: 'Could not fetch title from TMDB.' });
+  for (const o of omdbResults) {
+    const exists = db.prepare('SELECT id FROM titles WHERE imdb_id=?').get(o.imdbId);
+    candidates.push({
+      id: o.imdbId,
+      tmdbId: null,
+      imdbId: o.imdbId,
+      title: o.title,
+      kind: o.kind,
+      year: o.year,
+      rating: o.rating,
+      overview: '',
+      poster: o.poster,
+      backdrop: o.poster,
+      alreadyImported: !!exists,
+      localId: exists ? exists.id : null,
+      source: 'OMDb'
+    });
+  }
 
-  const existing = db.prepare('SELECT id FROM titles WHERE tmdb_id=?').get(tmdbId);
-  if (existing) return res.json({ message: 'Title already exists in catalog.', id: existing.id, alreadyExisted: true });
-
-  const posterUrl = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null;
-  const backdropUrl = data.backdrop_path ? `https://image.tmdb.org/t/p/w1280${data.backdrop_path}` : posterUrl;
-  const rating = data.vote_average ? Number(data.vote_average.toFixed(1)) : 8.0;
-  const year = parseInt(String(data.release_date || data.first_air_date || '').slice(0, 4), 10) || null;
-  const genres = (data.genres || []).map(g => g.name).filter(Boolean).join(',') || 'Action,Drama';
-  const lang = data.original_language || 'en';
-  let country = (data.origin_country && data.origin_country[0]) || 'US';
-  let audio = 'en,hi';
-  if (lang === 'hi' || country === 'IN') { country = 'IN'; audio = lang === 'hi' ? 'hi,en' : `${lang},hi,en`; }
-  else if (['te', 'ta', 'ml', 'kn'].includes(lang)) { country = 'IN'; audio = `${lang},hi,en`; }
-  else if (lang === 'ko') { country = 'KR'; audio = 'ko,en,hi'; }
-  else if (lang === 'ja') { country = 'JP'; audio = 'ja,en,hi'; }
-
-  const slug = (title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'title') + '-' + tmdbId;
-  const k = type === 'tv' ? 'series' : 'movie';
-
-  const insertTitle = db.prepare(`INSERT INTO titles
-    (slug, kind, title, overview, release_year, imdb_rating, tmdb_rating, runtime_min, genres, audio_languages, subtitle_languages, country, director, cast_json, maturity, quality, popularity, is_trending, is_popular, is_top_rated, is_featured, is_recently_added, license, allow_download, tmdb_id, poster_url, backdrop_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-
-  const info = insertTitle.run(
-    slug, k, title, data.overview || 'Available for streaming with multi-audio and high definition playback.',
-    year, rating, rating, k === 'movie' ? (data.runtime || 120) : (data.episode_run_time?.[0] || 45),
-    genres, audio, 'en,hi,es', country, '', '[]',
-    rating >= 8.2 ? 'R' : 'PG-13', rating >= 7.8 ? '4K' : 'HD',
-    data.popularity || 80, 1, 1, rating >= 8.0 ? 1 : 0, 1, 1,
-    'TMDB Multi-Server', 1, tmdbId, posterUrl, backdropUrl
-  );
-
-  const titleId = info.lastInsertRowid;
-  if (k === 'series') {
-    const insertSeason = db.prepare(`INSERT OR IGNORE INTO seasons (title_id, season_number, name, episode_count) VALUES (?, ?, ?, ?)`);
-    const insertEpisode = db.prepare(`INSERT OR IGNORE INTO episodes (season_id, episode_number, name, overview, runtime_min) VALUES (?, ?, ?, ?, ?)`);
-    const numSeasons = Math.max(1, Math.min(data.number_of_seasons || 2, 5));
-    for (let s = 1; s <= numSeasons; s++) {
-      const sInfo = insertSeason.run(titleId, s, `Season ${s}`, 8);
-      for (let e = 1; e <= 8; e++) {
-        insertEpisode.run(sInfo.lastInsertRowid, e, `Episode ${e}`, `Season ${s} Episode ${e}`, 45);
-      }
+  // Deduplicate
+  const seen = new Set();
+  const results = [];
+  for (const c of candidates) {
+    const key = (c.tmdbId ? `tmdb:${c.tmdbId}` : null) || (c.imdbId ? `imdb:${c.imdbId}` : null) || `${(c.title || '').toLowerCase().trim()}:${c.year}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      results.push(c);
     }
   }
 
-  res.json({ message: `Successfully imported "${title}" into CineMax!`, id: titleId, title, kind: k, alreadyExisted: false });
+  res.json({ results });
+});
+
+// 1-Click Multi-API Import action (available to both APK and Web)
+router.post('/catalog/tmdb/import', authRequired, async (req, res) => {
+  const { tmdbId, imdbId, kind, title } = req.body || {};
+  if (!tmdbId && !imdbId) return res.status(400).json({ error: 'VALIDATION', message: 'tmdbId or imdbId is required.' });
+
+  try {
+    const titleId = await autoIndexTitle({ tmdbId, imdbId, kind, title });
+    if (!titleId) return res.status(404).json({ error: 'NOT_FOUND', message: 'Could not fetch or import title.' });
+    const row = db.prepare('SELECT * FROM titles WHERE id=?').get(titleId);
+    res.json({ message: `Successfully added "${row.title}" into CineMax!`, id: titleId, title: row.title, kind: row.kind, alreadyExisted: false });
+  } catch (e) {
+    res.status(500).json({ error: 'IMPORT_ERROR', message: e.message });
+  }
 });
 
 module.exports = router;

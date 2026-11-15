@@ -654,6 +654,7 @@ async function searchTmdb() {
         <div style="position:relative; width:100%; aspect-ratio:2/3; background:#000;">
           ${r.poster ? `<img src="${esc(posterUrl(r.poster))}" style="width:100%; height:100%; object-fit:cover;" alt="${esc(r.title)}" />` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;">No Poster</div>'}
           <span style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.8); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase;">${esc(r.kind)}</span>
+          ${r.source ? `<span style="position:absolute; top:6px; left:6px; background:rgba(229,9,20,0.85); color:#fff; font-size:9px; font-weight:700; padding:2px 5px; border-radius:3px;">${esc(r.source)}</span>` : ''}
         </div>
         <div style="padding:10px; display:flex; flex-direction:column; flex:1;">
           <b style="font-size:13px; line-height:1.2; margin-bottom:4px; color:#fff;">${esc(r.title)}</b>
@@ -661,7 +662,7 @@ async function searchTmdb() {
           <div style="margin-top:auto;">
             ${r.alreadyImported
               ? '<button class="btn btn-block" disabled style="opacity:0.85; font-size:11px; padding:6px 8px; background:#122018; color:#00E676; border:1px solid #00E676;">✓ In CineMax</button>'
-              : `<button class="btn btn-primary btn-block tmdb-import-btn" data-tmdb="${r.id}" data-kind="${r.kind}" style="font-size:11px; padding:6px 8px;">+ Add to CineMax</button>`}
+              : `<button class="btn btn-primary btn-block tmdb-import-btn" data-tmdb="${r.tmdbId || ''}" data-imdb="${r.imdbId || ''}" data-title="${esc(r.title)}" data-kind="${r.kind}" style="font-size:11px; padding:6px 8px;">+ Add to CineMax</button>`}
           </div>
         </div>
       </div>
@@ -669,12 +670,14 @@ async function searchTmdb() {
 
     $$('.tmdb-import-btn', tmdbBox).forEach(btn => {
       btn.addEventListener('click', async () => {
-        const tmdbId = +btn.dataset.tmdb;
+        const tmdbId = btn.dataset.tmdb ? +btn.dataset.tmdb : null;
+        const imdbId = btn.dataset.imdb || null;
+        const title = btn.dataset.title || '';
         const kind = btn.dataset.kind;
         btn.disabled = true;
         btn.textContent = 'Importing…';
         try {
-          const res = await api('/admin/tmdb/import', { method: 'POST', body: { tmdbId, kind } });
+          const res = await api('/admin/tmdb/import', { method: 'POST', body: { tmdbId, imdbId, title, kind } });
           toast(res.message);
           btn.style.background = '#122018';
           btn.style.color = '#00E676';

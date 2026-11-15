@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { adminRequired } = require('./auth');
 const { csv, mapTitle, EMAIL_RE } = require('./util');
+const { searchOmdb } = require('./omdb');
+const { autoIndexTitle } = require('./universalCatalog');
 
 const API_KEY = process.env.TMDB_API_KEY || '844dba0bfd8f3a4f3799f6130ef9e335';
 
@@ -160,84 +162,83 @@ router.delete('/streams/:id', (req, res) => {
   res.json({ message: 'Stream removed.' });
 });
 
-// TMDB Instant Search for 1-Click Import
+// Multi-API Instant Search for 1-Click Import (TMDB + OMDb)
 router.get('/tmdb/search', async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json({ results: [] });
-  const data = await fetchTmdb(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(q)}`);
-  const results = (data.results || [])
-    .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-    .map(r => {
-      const exists = db.prepare('SELECT id FROM titles WHERE tmdb_id=?').get(r.id);
-      return {
-        id: r.id,
-        title: r.title || r.name,
-        kind: r.media_type === 'tv' ? 'series' : 'movie',
-        year: parseInt(String(r.release_date || r.first_air_date || '').slice(0, 4), 10) || null,
-        rating: r.vote_average ? Number(r.vote_average.toFixed(1)) : null,
-        overview: r.overview || '',
-        poster: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
-        backdrop: r.backdrop_path ? `https://image.tmdb.org/t/p/w1280${r.backdrop_path}` : null,
-        alreadyImported: !!exists,
-        localId: exists ? exists.id : null
-      };
+
+  const [tmdbData, omdbResults] = await Promise.all([
+    fetchTmdb(`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(q)}`),
+    searchOmdb(q)
+  ]);
+
+  const candidates = [];
+  for (const r of (tmdbData.results || [])) {
+    if (r.media_type !== 'movie' && r.media_type !== 'tv') continue;
+    const exists = db.prepare('SELECT id FROM titles WHERE tmdb_id=?').get(r.id);
+    candidates.push({
+      id: r.id,
+      tmdbId: r.id,
+      imdbId: null,
+      title: r.title || r.name,
+      kind: r.media_type === 'tv' ? 'series' : 'movie',
+      year: parseInt(String(r.release_date || r.first_air_date || '').slice(0, 4), 10) || null,
+      rating: r.vote_average ? Number(r.vote_average.toFixed(1)) : null,
+      overview: r.overview || '',
+      poster: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+      backdrop: r.backdrop_path ? `https://image.tmdb.org/t/p/w1280${r.backdrop_path}` : null,
+      alreadyImported: !!exists,
+      localId: exists ? exists.id : null,
+      source: 'TMDB'
     });
-  res.json({ results });
-});
+  }
 
-// 1-Click TMDB Importer
-router.post('/tmdb/import', async (req, res) => {
-  const { tmdbId, kind } = req.body || {};
-  if (!tmdbId) return res.status(400).json({ error: 'VALIDATION', message: 'tmdbId is required.' });
-  const type = kind === 'series' || kind === 'tv' ? 'tv' : 'movie';
-  const data = await fetchTmdb(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${API_KEY}`);
-  const title = data.title || data.name;
-  if (!title) return res.status(404).json({ error: 'NOT_FOUND', message: 'Could not fetch title from TMDB.' });
+  for (const o of omdbResults) {
+    const exists = db.prepare('SELECT id FROM titles WHERE imdb_id=?').get(o.imdbId);
+    candidates.push({
+      id: o.imdbId,
+      tmdbId: null,
+      imdbId: o.imdbId,
+      title: o.title,
+      kind: o.kind,
+      year: o.year,
+      rating: o.rating,
+      overview: '',
+      poster: o.poster,
+      backdrop: o.poster,
+      alreadyImported: !!exists,
+      localId: exists ? exists.id : null,
+      source: 'OMDb'
+    });
+  }
 
-  const existing = db.prepare('SELECT id FROM titles WHERE tmdb_id=?').get(tmdbId);
-  if (existing) return res.json({ message: 'Title already exists in catalog.', id: existing.id, alreadyExisted: true });
-
-  const posterUrl = data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null;
-  const backdropUrl = data.backdrop_path ? `https://image.tmdb.org/t/p/w1280${data.backdrop_path}` : posterUrl;
-  const rating = data.vote_average ? Number(data.vote_average.toFixed(1)) : 8.0;
-  const year = parseInt(String(data.release_date || data.first_air_date || '').slice(0, 4), 10) || null;
-  const genres = (data.genres || []).map(g => g.name).filter(Boolean).join(',') || 'Action,Drama';
-  const lang = data.original_language || 'en';
-  let country = (data.origin_country && data.origin_country[0]) || 'US';
-  let audio = 'en,hi';
-  if (lang === 'hi' || country === 'IN') { country = 'IN'; audio = lang === 'hi' ? 'hi,en' : `${lang},hi,en`; }
-  else if (['te', 'ta', 'ml', 'kn'].includes(lang)) { country = 'IN'; audio = `${lang},hi,en`; }
-  else if (lang === 'ko') { country = 'KR'; audio = 'ko,en,hi'; }
-  else if (lang === 'ja') { country = 'JP'; audio = 'ja,en,hi'; }
-
-  const slug = (title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'title') + '-' + tmdbId;
-  const k = type === 'tv' ? 'series' : 'movie';
-
-  const insertTitle = db.prepare(`INSERT INTO titles
-    (slug, kind, title, overview, release_year, imdb_rating, tmdb_rating, runtime_min, genres, audio_languages, subtitle_languages, country, director, cast_json, maturity, quality, popularity, is_trending, is_popular, is_top_rated, is_featured, is_recently_added, license, allow_download, tmdb_id, poster_url, backdrop_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-
-  const info = insertTitle.run(
-    slug, k, title, data.overview || 'Available for streaming with multi-audio and high definition playback.',
-    year, rating, rating, k === 'movie' ? (data.runtime || 120) : (data.episode_run_time?.[0] || 45),
-    genres, audio, 'en,hi', country, '', '[]', rating >= 8.2 ? 'R' : 'PG-13', rating >= 7.8 ? '4K' : 'HD',
-    data.popularity || 85, 1, 1, rating >= 8.0 ? 1 : 0, 1, 1, 'Multi-Server Stream', 1, tmdbId, posterUrl, backdropUrl
-  );
-
-  const titleId = info.lastInsertRowid;
-  if (k === 'series') {
-    const insertSeason = db.prepare(`INSERT OR IGNORE INTO seasons (title_id, season_number, name, episode_count) VALUES (?, ?, ?, ?)`);
-    const insertEpisode = db.prepare(`INSERT OR IGNORE INTO episodes (season_id, episode_number, name, overview, runtime_min) VALUES (?, ?, ?, ?, ?)`);
-    const numSeasons = Math.min(5, Math.max(1, data.number_of_seasons || 2));
-    for (let s = 1; s <= numSeasons; s++) {
-      const sInfo = insertSeason.run(titleId, s, `Season ${s}`, 8);
-      for (let ep = 1; ep <= 8; ep++) {
-        insertEpisode.run(sInfo.lastInsertRowid, ep, `Episode ${ep}`, `Season ${s} Episode ${ep}`, 45);
-      }
+  // Deduplicate
+  const seen = new Set();
+  const results = [];
+  for (const c of candidates) {
+    const key = (c.tmdbId ? `tmdb:${c.tmdbId}` : null) || (c.imdbId ? `imdb:${c.imdbId}` : null) || `${(c.title || '').toLowerCase().trim()}:${c.year}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      results.push(c);
     }
   }
 
-  res.status(201).json({ message: `Successfully imported "${title}"!`, id: titleId, title });
+  res.json({ results });
+});
+
+// 1-Click Multi-API Importer (TMDB + OMDb)
+router.post('/tmdb/import', async (req, res) => {
+  const { tmdbId, imdbId, kind, title } = req.body || {};
+  if (!tmdbId && !imdbId) return res.status(400).json({ error: 'VALIDATION', message: 'tmdbId or imdbId is required.' });
+
+  try {
+    const titleId = await autoIndexTitle({ tmdbId, imdbId, kind, title });
+    if (!titleId) return res.status(404).json({ error: 'NOT_FOUND', message: 'Could not fetch or import title.' });
+    const row = db.prepare('SELECT * FROM titles WHERE id=?').get(titleId);
+    res.status(201).json({ message: `Successfully imported "${row.title}"!`, id: titleId, title: row.title });
+  } catch (err) {
+    res.status(500).json({ error: 'IMPORT_ERROR', message: err.message });
+  }
 });
 
 module.exports = router;

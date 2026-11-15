@@ -5,78 +5,79 @@ const PLAYER_SOURCES = [
   {
     id: 'vidlink',
     name: 'Server 1: VidLink Pro (Ad-Free / Fast CDN - Recommended)',
-    movieUrl: (tmdbId) => `https://vidlink.pro/movie/${tmdbId}?primaryColor=e50914`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?primaryColor=e50914`,
+    movieUrl: (id, title, imdbId) => `https://vidlink.pro/movie/${id || imdbId}?primaryColor=e50914`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidlink.pro/tv/${id || imdbId}/${season}/${episode}?primaryColor=e50914`,
     note: 'Premium ad-free fast streaming with clean Netflix-style player'
   },
   {
     id: 'autoembed',
     name: 'Server 2: AutoEmbed (Fast CDN - Multi-Mirror)',
-    movieUrl: (tmdbId) => `https://autoembed.me/movie/tmdb/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://autoembed.me/tv/tmdb/${tmdbId}/${season}/${episode}`,
+    movieUrl: (id, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/movie/imdb/${imdbId}` : `https://autoembed.me/movie/tmdb/${id}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/tv/imdb/${imdbId}/${season}/${episode}` : `https://autoembed.me/tv/tmdb/${id}/${season}/${episode}`,
     note: 'Ultra-fast direct multi-CDN stream with instant buffering'
   },
   {
     id: 'vsembed',
     name: 'Server 3: VsEmbed (Hindi Audio)',
-    movieUrl: (tmdbId) => `https://vsembed.su/embed/movie/${tmdbId}?autoplay=1&ds_lang=hi`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vsembed.su/embed/tv/${tmdbId}/${season}/${episode}?autoplay=1&ds_lang=hi`,
+    movieUrl: (id, title, imdbId) => `https://vsembed.su/embed/movie/${id || imdbId}?autoplay=1&ds_lang=hi`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vsembed.su/embed/tv/${id || imdbId}/${season}/${episode}?autoplay=1&ds_lang=hi`,
     note: 'Fast primary server with Hindi audio and multiple subtitles'
   },
   {
     id: 'vidsrc_to',
     name: 'Server 4: VidSrc Pro (HD / Dual Audio)',
-    movieUrl: (tmdbId) => `https://vidsrc.to/embed/movie/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`,
+    movieUrl: (id, title, imdbId) => `https://vidsrc.to/embed/movie/${imdbId || id}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidsrc.to/embed/tv/${imdbId || id}/${season}/${episode}`,
     note: 'Popular high-speed mirror with multi-language audio'
   },
   {
     id: 'vidfast',
     name: 'Server 5: VidFast (Multi-Audio & Dubs)',
-    movieUrl: (tmdbId) => `https://vidfast.vc/movie/${tmdbId}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidfast.vc/tv/${tmdbId}/${season}/${episode}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
+    movieUrl: (id, title, imdbId) => `https://vidfast.vc/movie/${id || imdbId}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidfast.vc/tv/${id || imdbId}/${season}/${episode}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
     note: 'Multi-audio tracks with Hindi, English & regional dubs'
   },
   {
     id: 'vidnest',
     name: 'Server 6: VidNest (Clean / Fast)',
-    movieUrl: (tmdbId) => `https://vidnest.fun/movie/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
+    movieUrl: (id) => `https://vidnest.fun/movie/${id}`,
+    tvUrl: (id, season = 1, episode = 1) => `https://vidnest.fun/tv/${id}/${season}/${episode}`,
     note: 'Ad-light fast streaming player mirror'
   },
   {
     id: '2embed',
     name: 'Server 7: 2Embed (HD Stream)',
-    movieUrl: (tmdbId) => `https://2embed.cc/embed/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`,
+    movieUrl: (id, title, imdbId) => `https://2embed.cc/embed/${imdbId || id}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://2embed.cc/embedtv/${imdbId || id}&s=${season}&e=${episode}`,
     note: 'Reliable multi-language streaming provider'
   },
   {
     id: 'multiembed',
     name: 'Server 8: MultiEmbed (Aggregator)',
-    movieUrl: (tmdbId) => `https://multiembed.mov/?tmdb=1&id=${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://multiembed.mov/?tmdb=1&id=${tmdbId}&s=${season}&e=${episode}`,
+    movieUrl: (id, title, imdbId) => `https://multiembed.mov/?tmdb=1&id=${id || imdbId}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://multiembed.mov/?tmdb=1&id=${id || imdbId}&s=${season}&e=${episode}`,
     note: 'Global multi-source streaming mirror'
   },
   {
     id: 'peachify',
     name: 'Server 9: Peachify (HD / Fast)',
-    movieUrl: (tmdbId) => `https://peachify.top/embed/movie/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://peachify.top/embed/tv/${tmdbId}/${season}/${episode}`,
+    movieUrl: (id) => `https://peachify.top/embed/movie/${id}`,
+    tvUrl: (id, season = 1, episode = 1) => `https://peachify.top/embed/tv/${id}/${season}/${episode}`,
     note: 'Fast HD player'
   },
   {
     id: 'moviesmela',
     name: 'Server 10: MoviesMela (Direct / Download)',
-    movieUrl: (tmdbId, title) => `https://www.moviesmela.com/?s=${encodeURIComponent(title || tmdbId)}`,
-    tvUrl: (tmdbId, season = 1, episode = 1, title) => `https://www.moviesmela.com/?s=${encodeURIComponent(title || tmdbId)}`,
+    movieUrl: (id, title) => `https://www.moviesmela.com/?s=${encodeURIComponent(title || id)}`,
+    tvUrl: (id, season = 1, episode = 1, title) => `https://www.moviesmela.com/?s=${encodeURIComponent(title || id)}`,
     note: 'Bollywood & Dual Audio direct portal & download links'
   }
 ];
 
 function getPlayerSources(title, episode = null) {
-  if (!title || !title.tmdb_id) return [];
-  const tmdbId = title.tmdb_id;
+  if (!title || (!title.tmdb_id && !title.imdb_id)) return [];
+  const tmdbId = title.tmdb_id || title.imdb_id;
+  const imdbId = title.imdb_id || (String(title.tmdb_id).startsWith('tt') ? title.tmdb_id : null);
   const isSeries = title.kind === 'series';
   const seasonNum = episode?.season_number || 1;
   const episodeNum = episode?.episode_number || 1;
@@ -86,7 +87,7 @@ function getPlayerSources(title, episode = null) {
     id: src.id,
     name: src.name,
     note: src.note,
-    url: isSeries ? src.tvUrl(tmdbId, seasonNum, episodeNum, titleName) : src.movieUrl(tmdbId, titleName)
+    url: isSeries ? src.tvUrl(tmdbId, seasonNum, episodeNum, titleName, imdbId) : src.movieUrl(tmdbId, titleName, imdbId)
   }));
 }
 
