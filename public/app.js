@@ -378,9 +378,10 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       if (manifest.type === 'embed' || selectedUrl.includes('http')) {
         video.pause();
         video.style.display = 'none';
-        applyAdShieldToIframe(iframe);
+        iframe.removeAttribute('sandbox');
         iframe.src = selectedUrl;
         iframe.style.display = 'block';
+        activateClickShield(selectedUrl);
         toast('Switched server: ' + serverSelect.options[serverSelect.selectedIndex].text);
       }
     };
@@ -392,9 +393,10 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     // Embed iframe player (AutoEmbed, VsEmbed, VidSrc, VidFast, etc.)
     video.pause();
     video.style.display = 'none';
-    applyAdShieldToIframe(iframe);
+    iframe.removeAttribute('sandbox');
     iframe.src = manifest.url;
     iframe.style.display = 'block';
+    activateClickShield(manifest.url);
   } else {
     // Standard direct HTML5 video stream (MP4 / HLS / DASH)
     iframe.src = '';
@@ -430,6 +432,8 @@ function closeModal(id) {
   if (id === 'playerModal') {
     const v = $('#video'); v.pause(); v.removeAttribute('src'); v.load();
     const ifr = $('#playerIframe'); if (ifr) { ifr.src = 'about:blank'; ifr.style.display = 'none'; }
+    const cs = $('#clickShield'); if (cs) cs.style.display = 'none';
+    clearTimeout(shieldTimer);
     clearInterval(state.progressTimer); saveProgress();
   }
 }
@@ -439,55 +443,64 @@ document.addEventListener('keydown', e => {
   if (e.key === '/' && !/input|textarea|select/i.test(document.activeElement.tagName)) { e.preventDefault(); $('#searchInput').focus(); }
 });
 
-// Ad Shield System: Blocks all iframe click pop-up ads, new tabs, and tab hijacking
-const SANDBOX_PERMISSIONS = 'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock';
-let adShieldEnabled = true;
+// Ad Shield System: Transparent click-absorber defuses popup-ads on click without triggering anti-sandbox
+const clickShield = $('#clickShield');
+let shieldTimer = null;
 
-function applyAdShieldToIframe(ifr) {
-  if (!ifr) return;
-  if (adShieldEnabled) {
-    ifr.setAttribute('sandbox', SANDBOX_PERMISSIONS);
-  } else {
-    ifr.removeAttribute('sandbox');
+function activateClickShield(url) {
+  if (!clickShield) return;
+  // VidLink Pro is clean & ad-free; no click shield needed
+  if (url && url.includes('vidlink.pro')) {
+    clickShield.style.display = 'none';
+    clearTimeout(shieldTimer);
+    return;
   }
+  clickShield.style.display = 'block';
+  clickShield.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Neutralize click-jack ad
+    toast('🛡️ Ad popup blocked! Video controls unlocked.');
+    // Lower shield so user can interact with video controls
+    clickShield.style.display = 'none';
+    clearTimeout(shieldTimer);
+    shieldTimer = setTimeout(() => {
+      // Re-arm shield after user finishes interaction to block future ad clicks
+      if ($('#playerModal').classList.contains('open') && $('#playerIframe').style.display !== 'none') {
+        const curUrl = ($('#playerIframe') && $('#playerIframe').src) || '';
+        if (!curUrl.includes('vidlink.pro')) {
+          clickShield.style.display = 'block';
+        }
+      }
+    }, 15000);
+  };
 }
 
-const adShieldBadge = $('#adShieldBadge');
-if (adShieldBadge) {
-  adShieldBadge.style.cursor = 'pointer';
-  adShieldBadge.onclick = () => {
-    adShieldEnabled = !adShieldEnabled;
-    const ifr = $('#playerIframe');
-    if (ifr) {
-      if (adShieldEnabled) {
-        ifr.setAttribute('sandbox', SANDBOX_PERMISSIONS);
-        adShieldBadge.innerHTML = '🛡️ Ad Shield Active';
-        adShieldBadge.style.background = 'rgba(0,230,118,0.15)';
-        adShieldBadge.style.color = '#00e676';
-        adShieldBadge.style.borderColor = 'rgba(0,230,118,0.3)';
-        toast('🛡️ Ad Shield ON: Pop-up ads & new window tabs blocked');
-      } else {
-        ifr.removeAttribute('sandbox');
-        adShieldBadge.innerHTML = '⚠️ Ad Shield Paused';
-        adShieldBadge.style.background = 'rgba(255,171,0,0.15)';
-        adShieldBadge.style.color = '#ffab00';
-        adShieldBadge.style.borderColor = 'rgba(255,171,0,0.3)';
-        toast('⚠️ Ad Shield OFF: Compatibility mode');
-      }
-      const cur = ifr.src;
-      if (cur && cur !== 'about:blank') {
-        ifr.src = 'about:blank';
-        setTimeout(() => { ifr.src = cur; }, 80);
-      }
+// Native Fullscreen Button in Player bar
+const fsBtn = $('#fsBtn');
+if (fsBtn) {
+  fsBtn.onclick = () => {
+    const box = $('#playerFrameContainer');
+    if (!document.fullscreenElement) {
+      if (box.requestFullscreen) box.requestFullscreen();
+      else if (box.webkitRequestFullscreen) box.webkitRequestFullscreen();
+      else if (box.msRequestFullscreen) box.msRequestFullscreen();
+      fsBtn.textContent = '✕ Exit';
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      fsBtn.textContent = '⛶ Fullscreen';
     }
   };
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && fsBtn) fsBtn.textContent = '⛶ Fullscreen';
+  });
 }
 
 // Override window.open on top-level window so embedded ad scripts can never pop new windows
 const _origWindowOpen = window.open;
 window.open = function(url, target, features) {
   const modal = $('#playerModal');
-  if (modal && modal.classList.contains('open') && adShieldEnabled) {
+  if (modal && modal.classList.contains('open')) {
     console.warn('[AdShield] Blocked popup window.open:', url);
     return null;
   }
@@ -497,9 +510,19 @@ window.open = function(url, target, features) {
 // Ad Shield: Prevent embedded streaming players from hijacking top-level page
 window.addEventListener('beforeunload', (e) => {
   const modal = $('#playerModal');
-  if (modal && modal.classList.contains('open') && adShieldEnabled) {
+  if (modal && modal.classList.contains('open')) {
     e.preventDefault();
     return (e.returnValue = 'Leave CineMax player?');
+  }
+});
+
+// Ad Shield: Retain user focus on CineMax if an ad window attempts background popunder
+window.addEventListener('blur', () => {
+  const modal = $('#playerModal');
+  if (modal && modal.classList.contains('open')) {
+    setTimeout(() => {
+      try { if (!document.hidden) window.focus(); } catch {}
+    }, 100);
   }
 });
 
