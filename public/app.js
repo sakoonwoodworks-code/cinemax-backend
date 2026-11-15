@@ -142,6 +142,18 @@ $$('.topnav button').forEach(b => b.addEventListener('click', () => {
   const nav = b.dataset.nav;
   if (nav === 'movies') return openGrid('movie', 'Movies');
   if (nav === 'series') return openGrid('series', 'Web Series & OTT Originals');
+  if (nav === 'bollywood' || nav === 'hollywood' || nav === 'dubbed') {
+    state.homeKind = nav;
+    $$('#homeFilterBar button[data-home-kind]').forEach(x => x.classList.toggle('active', x.dataset.homeKind === nav));
+    go('home');
+    return bootData();
+  }
+  if (nav === 'home') {
+    state.homeKind = '';
+    $$('#homeFilterBar button[data-home-kind]').forEach(x => x.classList.toggle('active', x.dataset.homeKind === ''));
+    go('home');
+    return bootData();
+  }
   go(nav);
 }));
 
@@ -359,13 +371,84 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   $('#playerTitle').textContent = t.title + (episodeName ? ' — ' + episodeName : '');
   $('#playerSub').textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
-  const nextBtn = $('#nextEpisodeBtn');
-  nextBtn.style.display = 'none';
-  if (t.kind === 'series' && episodeId) {
-    const eps = (t.seasons || []).flatMap(s => s.episodes);
-    const idx = eps.findIndex(e => e.id === episodeId);
-    const next = eps.slice(idx + 1).find(e => e.playable);
-    if (next) { nextBtn.style.display = 'inline-flex'; nextBtn.onclick = () => playStream(t, next.id, next.name); }
+  // Audio Selector Setup
+  const audioSelect = $('#audioSelect');
+  if (audioSelect && servers.length > 0) {
+    audioSelect.value = 'auto';
+    audioSelect.onchange = () => {
+      const val = audioSelect.value;
+      let target = null;
+      if (val === 'hindi') {
+        target = servers.find(s => s.id === 'vsembed') || servers.find(s => s.id === 'vidfast') || servers.find(s => (s.note || '').toLowerCase().includes('hindi'));
+      } else if (val === 'english') {
+        target = servers.find(s => s.id === 'vidlink') || servers[0];
+      } else if (val === 'dual') {
+        target = servers.find(s => s.id === 'vidsrc_to') || servers.find(s => s.id === 'vidfast');
+      } else if (val === 'multi') {
+        target = servers.find(s => s.id === 'vidfast') || servers.find(s => s.id === 'vsembed');
+      } else {
+        target = servers[0];
+      }
+      if (target) {
+        serverSelect.value = target.url;
+        serverSelect.dispatchEvent(new Event('change'));
+        toast('🎧 Audio selected: ' + audioSelect.options[audioSelect.selectedIndex].text);
+      }
+    };
+  }
+
+  // Quick Episode Selector Overlay for Web Series with Auto-Hide
+  const seriesControls = $('#seriesOverlayControls');
+  const quickEpSelect = $('#quickEpisodeSelect');
+  const quickNextBtn = $('#quickNextEpBtn');
+  let overlayHideTimer = null;
+
+  function showSeriesOverlay() {
+    if (!seriesControls || t.kind !== 'series') return;
+    seriesControls.style.opacity = '1';
+    seriesControls.style.pointerEvents = 'auto';
+    clearTimeout(overlayHideTimer);
+    overlayHideTimer = setTimeout(() => {
+      if ($('#playerModal').classList.contains('open')) {
+        seriesControls.style.opacity = '0';
+        seriesControls.style.pointerEvents = 'none';
+      }
+    }, 3500);
+  }
+
+  const pContainer = $('#playerFrameContainer');
+  if (pContainer) {
+    pContainer.onmousemove = showSeriesOverlay;
+    pContainer.ontouchstart = showSeriesOverlay;
+  }
+
+  if (t.kind === 'series') {
+    const eps = (t.seasons || []).flatMap(s => (s.episodes || []).map(e => ({ ...e, seasonNum: s.seasonNumber || 1 })));
+    if (eps.length > 0) {
+      if (seriesControls) {
+        seriesControls.style.display = 'flex';
+        quickEpSelect.innerHTML = eps.map(e => 
+          `<option value="${e.id}" ${e.id === episodeId ? 'selected' : ''}>S${e.seasonNum}:E${e.episodeNumber} - ${esc(e.name)}</option>`
+        ).join('');
+        quickEpSelect.onchange = () => {
+          const ep = eps.find(x => x.id === +quickEpSelect.value);
+          if (ep) playStream(t, ep.id, ep.name);
+        };
+        const idx = eps.findIndex(e => e.id === episodeId);
+        const next = eps.slice(idx + 1).find(e => e.playable || true);
+        if (next) {
+          quickNextBtn.style.display = 'inline-flex';
+          quickNextBtn.onclick = () => playStream(t, next.id, next.name);
+        } else {
+          quickNextBtn.style.display = 'none';
+        }
+        showSeriesOverlay();
+      }
+    } else if (seriesControls) {
+      seriesControls.style.display = 'none';
+    }
+  } else if (seriesControls) {
+    seriesControls.style.display = 'none';
   }
 
   // Multi-server selector setup
@@ -568,6 +651,46 @@ $('#searchInput').addEventListener('input', e => {
 });
 $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') { $('#suggest').classList.remove('show'); runSearch(e.target.value.trim()); } });
 $('#sortSelect').addEventListener('change', e => { state.searchSort = e.target.value; const q = $('#searchInput').value.trim(); if (q) runSearch(q); });
+function searchCardHtml(t) {
+  const isSeries = t.kind === 'series';
+  const audios = (t.audioLanguages || []).join(', ').toUpperCase() || 'MULTI-AUDIO';
+  return `<div class="search-card-row" data-id="${t.id}" style="display:flex;gap:14px;background:#18181b;border:1px solid #27272a;border-radius:12px;padding:12px;margin-bottom:12px;align-items:center;cursor:pointer;transition:transform .15s ease,border-color .15s ease;">
+    <div style="width:72px;aspect-ratio:2/3;border-radius:8px;overflow:hidden;flex-shrink:0;background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+      <img loading="lazy" src="${esc(posterUrl(t.poster))}" alt="${esc(t.title)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.src='/posters/${esc(t.slug)}.svg'" />
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+        <span style="font-size:10px;font-weight:800;background:${isSeries ? '#3b82f6' : '#e50914'};color:#fff;padding:2px 6px;border-radius:4px;">${isSeries ? 'SERIES' : 'MOVIE'}</span>
+        <span style="color:#ffd700;font-size:11px;font-weight:700;">★ ${t.rating ? Number(t.rating).toFixed(1) : 'NR'}</span>
+        <span style="color:#a1a1aa;font-size:12px;">${esc(t.year || '')}</span>
+        <span style="font-size:10px;font-weight:700;background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.3);padding:2px 6px;border-radius:4px;">🎧 ${esc(audios)}</span>
+      </div>
+      <h3 style="margin:0 0 4px;font-size:16px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title)}</h3>
+      <p style="margin:0 0 10px;font-size:12px;color:#a1a1aa;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${esc(t.overview || 'No synopsis available.')}</p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-small btn-primary search-play-btn" data-id="${t.id}" style="padding:6px 14px;font-size:12px;font-weight:700;border-radius:6px;box-shadow:0 4px 12px rgba(229,9,20,0.4);">▶ Play Now</button>
+        <button class="btn btn-small btn-ghost search-info-btn" data-id="${t.id}" style="padding:6px 12px;font-size:12px;border-radius:6px;">ⓘ Info</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindSearchCards(root, items) {
+  const map = new Map((items || []).map(i => [i.id, i]));
+  $$('.search-card-row', root).forEach(row => {
+    const id = +row.dataset.id;
+    const item = map.get(id);
+    if (!item) return;
+    row.onclick = (e) => {
+      if (e.target.closest('.search-info-btn')) {
+        openDetails(id);
+      } else {
+        tryPlay(item);
+      }
+    };
+  });
+}
+
 async function runSearch(q) {
   if (!q) return;
   go('search');
@@ -576,8 +699,8 @@ async function runSearch(q) {
   try {
     const d = await api(`/search?q=${encodeURIComponent(q)}&sort=${state.searchSort}&profileId=${store.profileId}&limit=48`);
     $('#searchHeading').textContent = `Results for “${q}” (${d.total})`;
-    grid.innerHTML = d.results.length ? d.results.map(cardHtml).join('') : '<p class="muted">No matches. Try a different title, actor, genre or year.</p>';
-    bindCards(grid);
+    grid.innerHTML = d.results.length ? d.results.map(searchCardHtml).join('') : '<p class="muted">No matches. Try a different title, actor, genre or year.</p>';
+    bindSearchCards(grid, d.results);
   } catch (e) { grid.innerHTML = '<p class="muted">' + esc(e.message) + '</p>'; }
 }
 

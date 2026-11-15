@@ -177,7 +177,42 @@ router.get('/catalog/home', authRequired, (req, res) => {
   let featured = [];
   let rails = [];
 
-  if (kind === 'series') {
+  if (kind === 'bollywood') {
+    // ---------------- DEDICATED BOLLYWOOD SECTION ----------------
+    featured = mapRows(db.prepare(`SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') ${k} ORDER BY popularity DESC LIMIT 6`).all());
+    rails = [
+      rail('⚡ Latest Bollywood & Hindi Releases', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') ${k} ORDER BY id DESC LIMIT 30`),
+      rail('🔥 Bollywood Blockbusters & Hits', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') AND is_popular=1 ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('🎬 Hindi Action & High-Octane Thrillers', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') AND ','||genres||',' LIKE '%,Action,%' ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('❤️ Bollywood Romance & Drama', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') AND (','||genres||',' LIKE '%,Drama,%' OR ','||genres||',' LIKE '%,Romance,%') ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('😂 Bollywood Comedy Entertainers', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') AND ','||genres||',' LIKE '%,Comedy,%' ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('📺 Indian Web Series & OTT Originals', `SELECT * FROM titles WHERE kind='series' AND (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('⭐ Top Rated Bollywood (IMDb 7.5+)', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') AND imdb_rating >= 7.5 ${k} ORDER BY imdb_rating DESC LIMIT 30`),
+      rail('All Bollywood & Hindi Titles', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') ${k} ORDER BY id DESC LIMIT 60`),
+    ];
+  } else if (kind === 'hollywood') {
+    // ---------------- DEDICATED HOLLYWOOD SECTION ----------------
+    featured = mapRows(db.prepare(`SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') ${k} ORDER BY popularity DESC LIMIT 6`).all());
+    rails = [
+      rail('⚡ Latest Hollywood Releases', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') ${k} ORDER BY id DESC LIMIT 30`),
+      rail('🎬 Hollywood Blockbusters', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') AND is_popular=1 ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('🚀 Marvel, DC & Superheroes', `SELECT * FROM titles WHERE (title LIKE '%Spider-Man%' OR title LIKE '%Avengers%' OR title LIKE '%Batman%' OR title LIKE '%Deadpool%' OR title LIKE '%Venom%' OR title LIKE '%Wolverine%' OR title LIKE '%Superman%' OR title LIKE '%Thor%' OR title LIKE '%Iron Man%' OR ','||genres||',' LIKE '%,Fantasy,%') ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('💥 Action, Thriller & Sci-Fi', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') AND (','||genres||',' LIKE '%,Action,%' OR ','||genres||',' LIKE '%,Sci-Fi,%' OR ','||genres||',' LIKE '%,Science Fiction,%') ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('⭐ Top Rated Hollywood (IMDb 8+)', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') AND imdb_rating >= 8.0 ${k} ORDER BY imdb_rating DESC LIMIT 30`),
+      rail('😱 Horror, Mystery & Suspense', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') AND (','||genres||',' LIKE '%,Horror,%' OR ','||genres||',' LIKE '%,Mystery,%') ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('All Hollywood Titles', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') ${k} ORDER BY id DESC LIMIT 60`),
+    ];
+  } else if (kind === 'dubbed' || kind === 'south') {
+    // ---------------- DEDICATED SOUTH INDIAN & DUBBED SECTION ----------------
+    featured = mapRows(db.prepare(`SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%' OR ','||audio_languages||',' LIKE '%,ml,%' OR ','||audio_languages||',' LIKE '%,kn,%' OR title LIKE '%K.G.F%' OR title LIKE '%RRR%' OR title LIKE '%Salaar%' OR title LIKE '%Pushpa%' OR title LIKE '%Baahubali%' OR title LIKE '%Kantara%' OR title LIKE '%Vikram%') ${k} ORDER BY popularity DESC LIMIT 6`).all());
+    rails = [
+      rail('⚡ South Indian Hindi Dubbed Hits', `SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%' OR ','||audio_languages||',' LIKE '%,ml,%' OR ','||audio_languages||',' LIKE '%,kn,%' OR title LIKE '%K.G.F%' OR title LIKE '%RRR%' OR title LIKE '%Salaar%' OR title LIKE '%Pushpa%' OR title LIKE '%Baahubali%' OR title LIKE '%Kantara%' OR title LIKE '%Vikram%') ${k} ORDER BY id DESC LIMIT 30`),
+      rail('🔥 Pan-India Action Blockbusters', `SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%' OR ','||audio_languages||',' LIKE '%,ml,%' OR ','||audio_languages||',' LIKE '%,kn,%' OR title LIKE '%K.G.F%' OR title LIKE '%RRR%' OR title LIKE '%Salaar%' OR title LIKE '%Pushpa%' OR title LIKE '%Baahubali%') ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('💥 South Indian Mass Action', `SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%') AND ','||genres||',' LIKE '%,Action,%' ${k} ORDER BY popularity DESC LIMIT 30`),
+      rail('⭐ Top Rated South Indian (IMDb 8+)', `SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%' OR ','||audio_languages||',' LIKE '%,ml,%') AND imdb_rating >= 8.0 ${k} ORDER BY imdb_rating DESC LIMIT 30`),
+      rail('All South & Dubbed Titles', `SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%' OR ','||audio_languages||',' LIKE '%,ml,%' OR ','||audio_languages||',' LIKE '%,kn,%') ${k} ORDER BY id DESC LIMIT 60`),
+    ];
+  } else if (kind === 'series') {
     // ---------------- DEDICATED WEB SERIES SECTION ----------------
     featured = mapRows(db.prepare(`SELECT * FROM titles WHERE kind='series' ${k} ORDER BY popularity DESC LIMIT 6`).all());
     rails = [
@@ -214,9 +249,11 @@ router.get('/catalog/home', authRequired, (req, res) => {
     featured = mapRows(db.prepare(`SELECT * FROM titles WHERE is_featured=1 ${k} ORDER BY popularity DESC LIMIT 6`).all());
     rails = [
       rail('⚡ New & Recently Added Releases', `SELECT * FROM titles ${fallbackWhere} ORDER BY id DESC LIMIT 30`),
-      rail('⚡ New & Recently Added Movies', `SELECT * FROM titles WHERE kind='movie' ${k} ORDER BY id DESC LIMIT 24`),
+      rail('🇮🇳 Bollywood Hits & Blockbusters', `SELECT * FROM titles WHERE (country LIKE '%IN%' OR ','||audio_languages||',' LIKE '%,hi,%') ${k} ORDER BY popularity DESC LIMIT 24`),
+      rail('🎬 Hollywood Blockbusters', `SELECT * FROM titles WHERE (country LIKE '%US%' OR country LIKE '%GB%') ${k} ORDER BY popularity DESC LIMIT 24`),
+      rail('⚡ South Indian (Hindi Dubbed)', `SELECT * FROM titles WHERE (','||audio_languages||',' LIKE '%,te,%' OR ','||audio_languages||',' LIKE '%,ta,%' OR ','||audio_languages||',' LIKE '%,ml,%' OR ','||audio_languages||',' LIKE '%,kn,%') ${k} ORDER BY popularity DESC LIMIT 24`),
       rail('📺 Latest Web Series & OTT Releases', `SELECT * FROM titles WHERE kind='series' ${k} ORDER BY id DESC LIMIT 24`),
-      rail('Trending Now', `SELECT * FROM titles WHERE is_trending=1 ${k} ORDER BY popularity DESC LIMIT 24`),
+      rail('🔥 Trending Now', `SELECT * FROM titles WHERE is_trending=1 ${k} ORDER BY popularity DESC LIMIT 24`),
       rail('Indian Web Series & OTT Originals', `SELECT * FROM titles WHERE kind='series' AND country LIKE '%IN%' ${k} ORDER BY popularity DESC LIMIT 24`),
       rail('Pirates & Swashbuckling Adventures', `SELECT * FROM titles WHERE (title LIKE '%Pirates of the Caribbean%' OR title LIKE '%Black Sails%' OR title LIKE '%Jungle Cruise%' OR title LIKE '%Mummy%' OR title LIKE '%Treasure%' OR title LIKE '%Sinbad%' OR title LIKE '%Sea Beast%' OR title LIKE '%Uncharted%' OR title LIKE '%Indiana Jones%' OR title LIKE '%ONE PIECE%') ${k} ORDER BY popularity DESC LIMIT 24`),
       rail('Popular on CineMax', `SELECT * FROM titles WHERE is_popular=1 ${k} ORDER BY popularity DESC LIMIT 24`),

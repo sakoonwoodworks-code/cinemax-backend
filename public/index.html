@@ -26,8 +26,11 @@
     <a class="logo" href="#" onclick="go('home');return false"><span class="logo-badge">M</span>CINEMAX</a>
     <nav class="topnav">
       <button data-nav="home" class="active">Home</button>
-      <button data-nav="movies">Movies</button>
+      <button data-nav="bollywood">🇮🇳 Bollywood</button>
+      <button data-nav="hollywood">🎬 Hollywood</button>
+      <button data-nav="dubbed">⚡ Hindi Dubbed</button>
       <button data-nav="series">Web Series</button>
+      <button data-nav="movies">Movies</button>
       <button data-nav="mylist">My List</button>
       <button data-nav="downloads">Downloads</button>
     </nav>
@@ -56,10 +59,13 @@
     <div class="hero-fade"></div>
     <div class="hero-content" id="heroContent"><div class="hero-kicker">CINEMAX ORIGINAL</div><h1 class="hero-title">Loading…</h1></div>
   </section>
-  <div class="home-filter-bar" id="homeFilterBar" style="max-width:1720px;margin:18px auto 0;padding:0 4vw;display:flex;gap:10px;align-items:center;">
+  <div class="home-filter-bar" id="homeFilterBar" style="max-width:1720px;margin:18px auto 0;padding:0 4vw;display:flex;gap:10px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <button class="chip active" data-home-kind="">⚡ All</button>
-    <button class="chip" data-home-kind="movie">🍿 Movies</button>
+    <button class="chip" data-home-kind="bollywood">🇮🇳 Bollywood</button>
+    <button class="chip" data-home-kind="hollywood">🎬 Hollywood</button>
+    <button class="chip" data-home-kind="dubbed">⚡ Hindi Dubbed</button>
     <button class="chip" data-home-kind="series">📺 Web Series</button>
+    <button class="chip" data-home-kind="movie">🍿 Movies</button>
   </div>
   <div class="rails" id="rails"><div class="skeleton-rail"></div><div class="skeleton-rail"></div></div>
 </main>
@@ -150,6 +156,10 @@
     <div id="playerFrameContainer" class="player-frame-box" style="width:100%; aspect-ratio:16/9; max-height:78vh; min-height:460px; background:#000; position:relative; display:flex; align-items:stretch;">
       <video id="video" playsinline controls preload="auto" style="width:100%; height:100%; object-fit:contain; background:#000; display:none;"></video>
       <iframe id="playerIframe" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" referrerpolicy="origin" style="width:100%; height:100%; border:none; display:none; background:#000;"></iframe>
+      <div id="seriesOverlayControls" style="display:none; position:absolute; top:14px; right:14px; z-index:12; align-items:center; gap:8px; transition:opacity .25s ease;">
+        <select id="quickEpisodeSelect" style="background:rgba(20,20,20,0.88); backdrop-filter:blur(8px); color:#fff; border:1px solid rgba(255,255,255,0.3); border-radius:6px; padding:6px 12px; font-size:12px; font-weight:700; cursor:pointer; outline:none; box-shadow:0 4px 14px rgba(0,0,0,0.6);"></select>
+        <button id="quickNextEpBtn" class="btn btn-small btn-primary" style="display:none; padding:6px 12px; font-size:12px; font-weight:700; box-shadow:0 4px 14px rgba(229,9,20,0.5);">Next Ep ⏭</button>
+      </div>
       <div id="clickShield" style="display:none; position:absolute; inset:0; z-index:5; background:transparent; cursor:pointer;" title="Click to block popup and enable controls"></div>
     </div>
     <div class="player-meta">
@@ -158,6 +168,16 @@
         <div class="player-sub" id="playerSub"></div>
       </div>
       <button id="adShieldBadge" type="button" title="Ad Shield prevents rogue redirect popups" style="background:rgba(0,230,118,0.15);color:#00e676;border:1px solid rgba(0,230,118,0.3);padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;cursor:default;">🛡️ Ad Shield Active</button>
+      <div id="audioPicker" style="display:flex;align-items:center;gap:8px;margin-right:10px;">
+        <label for="audioSelect" style="color:var(--muted);font-size:12px;font-weight:600;">🎧 Audio:</label>
+        <select id="audioSelect" style="background:#1c1c1e;color:#fff;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;">
+          <option value="auto">Auto / Best</option>
+          <option value="hindi">🇮🇳 Hindi Audio (Server 3)</option>
+          <option value="english">🌐 English (Server 1)</option>
+          <option value="dual">⚡ Dual Audio (Server 4)</option>
+          <option value="multi">🎭 Multi-Audio (Server 5)</option>
+        </select>
+      </div>
       <div id="serverPicker" style="display:flex;align-items:center;gap:8px;margin-right:10px;">
         <label for="serverSelect" style="color:var(--muted);font-size:12px;font-weight:600;">Server:</label>
         <select id="serverSelect" style="background:#1c1c1e;color:#fff;border:1px solid #333;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;"></select>
