@@ -3,11 +3,11 @@
 
 const PLAYER_SOURCES = [
   {
-    id: 'vidfast',
-    name: 'Server 1: VidFast (Hindi / Dual Audio)',
-    movieUrl: (tmdbId) => `https://vidfast.vc/movie/${tmdbId}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidfast.vc/tv/${tmdbId}/${season}/${episode}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
-    note: 'Multi-audio tracks with Hindi, English & fast HD streams'
+    id: 'autoembed',
+    name: 'Server 1: AutoEmbed (Fast CDN - Recommended)',
+    movieUrl: (tmdbId) => `https://autoembed.co/movie/tmdb/${tmdbId}`,
+    tvUrl: (tmdbId, season = 1, episode = 1) => `https://autoembed.co/tv/tmdb/${tmdbId}/${season}/${episode}`,
+    note: 'Ultra-fast direct multi-CDN stream with instant buffering'
   },
   {
     id: 'vsembed',
@@ -17,32 +17,32 @@ const PLAYER_SOURCES = [
     note: 'Fast primary server with Hindi audio and multiple subtitles'
   },
   {
+    id: 'vidsrc_to',
+    name: 'Server 3: VidSrc Pro (HD / Dual Audio)',
+    movieUrl: (tmdbId) => `https://vidsrc.to/embed/movie/${tmdbId}`,
+    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`,
+    note: 'Popular high-speed mirror with multi-language audio'
+  },
+  {
+    id: 'vidfast',
+    name: 'Server 4: VidFast (Multi-Audio & Dubs)',
+    movieUrl: (tmdbId) => `https://vidfast.vc/movie/${tmdbId}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
+    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidfast.vc/tv/${tmdbId}/${season}/${episode}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
+    note: 'Multi-audio tracks with Hindi, English & regional dubs'
+  },
+  {
     id: 'vidnest',
-    name: 'Server 3: VidNest (Clean / Fast)',
+    name: 'Server 5: VidNest (Clean / Fast)',
     movieUrl: (tmdbId) => `https://vidnest.fun/movie/${tmdbId}`,
     tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
     note: 'Ad-light fast streaming player mirror'
   },
   {
-    id: 'autoembed',
-    name: 'Server 4: AutoEmbed (Multi-Source)',
-    movieUrl: (tmdbId) => `https://autoembed.co/movie/tmdb/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://autoembed.co/tv/tmdb/${tmdbId}/${season}/${episode}`,
-    note: 'Auto-aggregates high speed streaming mirrors'
-  },
-  {
     id: '2embed',
-    name: 'Server 5: 2Embed (HD Stream)',
+    name: 'Server 6: 2Embed (HD Stream)',
     movieUrl: (tmdbId) => `https://2embed.cc/embed/${tmdbId}`,
     tvUrl: (tmdbId, season = 1, episode = 1) => `https://2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`,
     note: 'Reliable multi-language streaming provider'
-  },
-  {
-    id: 'vidsrc_to',
-    name: 'Server 6: VidSrc Pro (Dual Audio)',
-    movieUrl: (tmdbId) => `https://vidsrc.to/embed/movie/${tmdbId}`,
-    tvUrl: (tmdbId, season = 1, episode = 1) => `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`,
-    note: 'Popular streaming mirror with dual-audio support'
   },
   {
     id: 'multiembed',
