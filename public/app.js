@@ -470,30 +470,90 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   const pSub = $('#playerSub');
   if (pSub) pSub.textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
-  // Custom CineMax Loading Animation
+  // Custom CineMax Loading Animation & Big Play Button System
   const loader = $('#playerLoader');
   const loaderTitle = $('#playerLoaderTitle');
-  function showLoader(msg) {
+  const loaderSub = $('#playerLoaderSub');
+  const loaderSpinner = $('#loaderSpinner');
+  const loaderPlayBtn = $('#loaderPlayBtn');
+  let streamReady = false;
+  let retryCount = 0;
+  let currentServerIdx = 0;
+
+  function showLoader(titleMsg, subMsg) {
     if (!loader) return;
+    streamReady = false;
+    clearTimeout(window._readyTimer);
+    clearTimeout(window._loaderTimer);
     loader.style.display = 'flex';
     loader.style.opacity = '1';
-    if (loaderTitle) loaderTitle.textContent = msg || 'Connecting to Zero-Buffering Stream…';
-    clearTimeout(window._loaderTimer);
-    window._loaderTimer = setTimeout(() => {
-      loader.style.opacity = '0';
-      setTimeout(() => { loader.style.display = 'none'; }, 400);
-    }, 4500);
+    if (loaderSpinner) loaderSpinner.style.display = 'block';
+    if (loaderPlayBtn) loaderPlayBtn.style.display = 'none';
+    if (loaderTitle) loaderTitle.textContent = titleMsg || 'Movie is on the way…';
+    if (loaderSub) loaderSub.textContent = subMsg || 'Connecting to Zero-Buffering Multi-Audio Stream…';
   }
-  function hideLoader(delayMs = 2600) {
+
+  function setStreamReady() {
+    if (streamReady) return;
+    streamReady = true;
+    if (loaderSpinner) loaderSpinner.style.display = 'none';
+    if (loaderPlayBtn) {
+      loaderPlayBtn.style.display = 'flex';
+      loaderPlayBtn.style.animation = 'cinemaxPulse 1.6s ease-in-out infinite';
+    }
+    if (loaderTitle) loaderTitle.textContent = 'Ready to Watch';
+    if (loaderSub) loaderSub.textContent = 'Click Play to begin full-screen movie';
+  }
+
+  function hideLoader(delayMs = 0) {
+    clearTimeout(window._readyTimer);
     clearTimeout(window._loaderTimer);
     window._loaderTimer = setTimeout(() => {
       if (loader) {
         loader.style.opacity = '0';
-        setTimeout(() => { loader.style.display = 'none'; }, 400);
+        setTimeout(() => {
+          loader.style.display = 'none';
+          if (loaderPlayBtn) loaderPlayBtn.style.display = 'none';
+          if (loaderSpinner) loaderSpinner.style.display = 'block';
+        }, 400);
       }
     }, delayMs);
   }
-  showLoader('Connecting to Zero-Buffering Stream…');
+
+  if (loaderPlayBtn) {
+    loaderPlayBtn.onclick = (e) => {
+      e.stopPropagation();
+      hideLoader(0);
+      try { iframe.focus(); } catch {}
+    };
+  }
+
+  if (loader) {
+    loader.onclick = () => {
+      if (streamReady) hideLoader(0);
+    };
+  }
+
+  function retryStreamInBackground(reason) {
+    console.warn('[CineMax Auto-Retry] Background stream issue:', reason);
+    if (retryCount >= 4) return;
+    retryCount++;
+    showLoader('Movie is on the way…', 'Optimizing multi-audio stream connection…');
+    setTimeout(() => {
+      if (servers.length > 1) {
+        currentServerIdx = (currentServerIdx + 1) % servers.length;
+        const nextServer = servers[currentServerIdx];
+        if (nextServer && iframe) {
+          console.log('[CineMax Auto-Retry] Switching to mirror:', nextServer.name || nextServer.id);
+          iframe.src = nextServer.url;
+        }
+      } else if (iframe) {
+        iframe.src = iframe.src;
+      }
+    }, 1200);
+  }
+
+  showLoader('Movie is on the way…', 'Connecting to Zero-Buffering Multi-Audio Stream…');
 
   // Multi-server selector setup
   const multiBadge = $('#multiAudioBadge');
@@ -640,7 +700,13 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     video.style.display = 'none';
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     iframe.removeAttribute('sandbox');
-    iframe.onload = () => hideLoader(3200);
+    iframe.onload = () => {
+      clearTimeout(window._readyTimer);
+      window._readyTimer = setTimeout(() => {
+        setStreamReady();
+      }, 4200);
+    };
+    iframe.onerror = () => retryStreamInBackground('iframe.onerror');
     iframe.src = manifest.url;
     iframe.style.display = 'block';
     activateClickShield(manifest.url);
@@ -656,7 +722,8 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       window._currentHls = hls;
       hls.loadSource(manifest.url);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => hideLoader(400));
+      hls.on(Hls.Events.MANIFEST_PARSED, () => setStreamReady());
+      hls.on(Hls.Events.ERROR, () => retryStreamInBackground('hls.error'));
       hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
         const tracks = hls.audioTracks;
         if (tracks && tracks.length > 1 && audioSelect) {
@@ -666,9 +733,11 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       });
     } else {
       video.src = manifest.url;
-      video.onloadeddata = () => hideLoader(400);
+      video.onloadeddata = () => setStreamReady();
+      video.onerror = () => retryStreamInBackground('video.onerror');
       video.load();
     }
+    video.onplaying = () => hideLoader(0);
     // resume
     try {
       const pr = await api(`/user/progress?profileId=${store.profileId}&titleId=${t.id}&episodeId=${episodeId || 0}`);
@@ -698,6 +767,8 @@ function closeModal(id) {
     const loader = $('#playerLoader');
     if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; }
     clearTimeout(window._loaderTimer);
+    clearTimeout(window._readyTimer);
+    clearTimeout(window._shieldFadeTimer);
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     const v = $('#video'); v.pause(); v.removeAttribute('src'); v.load();
     const ifr = $('#playerIframe'); if (ifr) { ifr.src = 'about:blank'; ifr.style.display = 'none'; }
