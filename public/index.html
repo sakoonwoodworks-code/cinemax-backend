@@ -18,7 +18,7 @@
 <link rel="dns-prefetch" href="https://vidfast.vc" />
 <link rel="dns-prefetch" href="https://image.tmdb.org" />
 <link rel="preconnect" href="https://image.tmdb.org" crossorigin />
-<link rel="stylesheet" href="/styles.css?v=7" />
+<link rel="stylesheet" href="/styles.css?v=8" />
 </head>
 <body>
 <header class="topbar" id="topbar">
@@ -47,16 +47,17 @@
       <span>Android App</span>
     </a>
     <div class="account">
+      <button class="btn-signin-nav" id="navSignInBtn" style="display:none">Sign In</button>
       <button class="icon-btn" id="adminBtn" title="Admin dashboard" style="display:none">⚙</button>
-      <button class="avatar" id="avatarBtn" title="Profile">D</button>
+      <button class="avatar" id="avatarBtn" title="Profile">👤</button>
       <div class="menu" id="menu">
-        <div class="menu-head"><div class="menu-name" id="menuName">Demo</div><div class="menu-sub" id="menuEmail">demo@cinemax.app</div></div>
+        <div class="menu-head"><div class="menu-name" id="menuName">Guest User</div><div class="menu-sub" id="menuEmail">Sign in is optional</div></div>
         <div class="menu-label">Switch profile</div>
         <div id="profileList"></div>
         <a href="/download/android" class="menu-item" style="color:#2ed573;display:flex;align-items:center;gap:10px;text-decoration:none;" download>
           <span>🤖 Download Android APK</span>
         </a>
-        <button id="menuSignout" class="menu-item danger">Sign out</button>
+        <button id="menuSignout" class="menu-item danger" style="display:none">Sign out</button>
       </div>
     </div>
   </div>
@@ -226,10 +227,11 @@
 </div>
 <!-- Auth modal -->
 <div class="modal" id="authModal"><div class="modal-backdrop"></div>
-  <div class="auth-card">
+  <div class="auth-card" style="position:relative">
+    <button class="modal-close" id="authCloseBtn" title="Close" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#aaa;font-size:1.3rem;cursor:pointer;line-height:1;">✕</button>
     <div class="auth-logo">CINEMAX</div>
     <h2 id="authTitle">Welcome back</h2>
-    <p class="muted" id="authSub">Sign in to continue watching</p>
+    <p class="muted" id="authSub">Sign in to sync your watchlist &amp; history</p>
     <form id="authForm">
       <input name="name" id="authName" placeholder="Full name" autocomplete="name" style="display:none" />
       <input name="email" type="email" placeholder="Email" required autocomplete="email" />
@@ -245,6 +247,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="/app.js?v=7"></script>
+<script src="/app.js?v=8"></script>
 </body>
 </html>

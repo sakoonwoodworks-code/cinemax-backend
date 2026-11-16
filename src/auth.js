@@ -40,6 +40,33 @@ function authRequired(req, res, next) {
     next();
   } catch { res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid or expired token.' }); }
 }
+
+// Optional Auth: Guest access by default. If valid token is present, populates req.user.
+// If token is missing, expired or invalid, sets a safe Guest user object and continues without 401.
+function optionalAuth(req, res, next) {
+  const h = req.headers.authorization || '';
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  const rawAlt = req.headers['x-cinemax-token'];
+  const token = m ? m[1] : (typeof rawAlt === 'string' && rawAlt.trim() ? rawAlt.trim() : null);
+  if (!token) {
+    req.user = { id: 0, name: 'Guest', email: 'guest@cinemax.app', role: 'guest', is_active: 1 };
+    return next();
+  }
+  try {
+    const payload = jwt.verify(token, SECRET);
+    const user = db.prepare('SELECT * FROM users WHERE id=?').get(payload.sub);
+    if (user && user.is_active) {
+      req.user = user;
+    } else {
+      req.user = { id: 0, name: 'Guest', email: 'guest@cinemax.app', role: 'guest', is_active: 1 };
+    }
+    next();
+  } catch {
+    req.user = { id: 0, name: 'Guest', email: 'guest@cinemax.app', role: 'guest', is_active: 1 };
+    next();
+  }
+}
+
 function adminRequired(req, res, next) {
   authRequired(req, res, () => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'FORBIDDEN', message: 'Admin access required.' });
@@ -104,4 +131,4 @@ router.get('/me', authRequired, (req, res) => {
   res.json({ user: publicUser(req.user), profiles });
 });
 
-module.exports = { router, authRequired, adminRequired, publicUser, sign };
+module.exports = { router, authRequired, optionalAuth, adminRequired, publicUser, sign };

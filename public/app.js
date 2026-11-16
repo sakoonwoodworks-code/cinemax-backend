@@ -49,7 +49,14 @@ async function api(path, { method = 'GET', body } = {}) {
   }
   clearTimeout(timer);
   let data = null; try { data = await res.json(); } catch {}
-  if (res.status === 401) { signOut(true); throw new Error((data && data.message) || 'Please sign in.'); }
+  if (res.status === 401) {
+    if (store.token) {
+      store.token = null;
+      store.user = null;
+      renderGuestAccount();
+    }
+    throw new Error((data && data.message) || 'Please sign in.');
+  }
   if (!res.ok) { const e = new Error((data && data.message) || 'Request failed (' + res.status + ')'); e.code = data && data.error; e.status = res.status; throw e; }
   return data;
 }
@@ -70,7 +77,13 @@ function posterUrl(u) {
 }
 
 /* ---------------- auth ---------------- */
-function signOut(silent) { store.token = null; store.user = null; store.profileId = null; if (!silent) toast('Signed out.'); openAuth(false); }
+function signOut(silent) {
+  store.token = null; store.user = null; store.profileId = null;
+  if (!silent) toast('Signed out.');
+  $('#menu').classList.remove('show');
+  renderGuestAccount();
+  bootData();
+}
 function openAuth(isRegister) {
   $('#authModal').classList.add('open');
   setAuthMode(!!isRegister);
@@ -79,12 +92,19 @@ function closeAuth() { $('#authModal').classList.remove('open'); $('#authError')
 function setAuthMode(reg) {
   $('#authName').style.display = reg ? 'block' : 'none';
   $('#authTitle').textContent = reg ? 'Create your account' : 'Welcome back';
-  $('#authSub').textContent = reg ? 'Join CineMax in seconds.' : 'Sign in to continue watching';
+  $('#authSub').textContent = reg ? 'Join CineMax in seconds.' : 'Sign in to sync your watchlist & history';
   $('#authSubmit').textContent = reg ? 'Sign Up' : 'Sign In';
   $('#authToggle').innerHTML = reg ? 'Already a member? <b>Sign in</b>' : 'New to CineMax? <b>Sign up</b>';
   $('#authToggle').dataset.mode = reg ? 'login' : 'register';
 }
 $('#authToggle').addEventListener('click', () => setAuthMode($('#authToggle').dataset.mode === 'register'));
+const authCloseBtn = $('#authCloseBtn');
+if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuth);
+const authBackdrop = $('#authModal .modal-backdrop');
+if (authBackdrop) authBackdrop.addEventListener('click', closeAuth);
+const navSignInBtn = $('#navSignInBtn');
+if (navSignInBtn) navSignInBtn.addEventListener('click', () => openAuth(false));
+
 $('#forgotLink').addEventListener('click', async () => {
   const email = $('#authForm input[name=email]').value.trim();
   if (!email) { $('#authError').textContent = 'Enter your email above first, then tap "Forgot password?"'; return; }
@@ -110,10 +130,43 @@ $('#authForm').addEventListener('submit', async ev => {
 });
 
 /* ---------------- account / profiles ---------------- */
+function renderGuestAccount() {
+  const navBtn = $('#navSignInBtn');
+  if (navBtn) navBtn.style.display = 'inline-flex';
+  const avatarBtn = $('#avatarBtn');
+  if (avatarBtn) {
+    avatarBtn.textContent = '👤';
+    avatarBtn.title = 'Guest Account (Click to Sign In)';
+  }
+  $('#menuName').textContent = 'Guest User';
+  $('#menuEmail').textContent = 'Sign in is optional';
+  $('#adminBtn').style.display = 'none';
+  const signoutBtn = $('#menuSignout');
+  if (signoutBtn) signoutBtn.style.display = 'none';
+  const list = $('#profileList');
+  if (list) {
+    list.innerHTML = `
+      <div style="padding:8px 6px 12px;font-size:0.8rem;color:var(--muted);line-height:1.4">
+        You are browsing as Guest.<br/>
+        <button class="btn btn-small btn-primary" id="guestMenuSignIn" style="margin-top:8px;width:100%;font-size:.8rem;font-weight:700">Sign In / Register</button>
+      </div>
+    `;
+    const b = $('#guestMenuSignIn');
+    if (b) b.addEventListener('click', () => { $('#menu').classList.remove('show'); openAuth(false); });
+  }
+}
+
 function renderAccount(me) {
-  const u = me.user; $('#menuName').textContent = u.name; $('#menuEmail').textContent = u.email;
+  const navBtn = $('#navSignInBtn');
+  if (navBtn) navBtn.style.display = 'none';
+  const u = me.user;
+  $('#menuName').textContent = u.name;
+  $('#menuEmail').textContent = u.email;
   $('#avatarBtn').textContent = (u.name || 'D')[0].toUpperCase();
+  $('#avatarBtn').title = 'Profile: ' + u.name;
   $('#adminBtn').style.display = u.role === 'admin' ? 'grid' : 'none';
+  const signoutBtn = $('#menuSignout');
+  if (signoutBtn) signoutBtn.style.display = 'block';
   const list = $('#profileList'); list.innerHTML = '';
   for (const p of me.profiles) {
     const b = document.createElement('button');
@@ -172,8 +225,8 @@ $$('#homeFilterBar button[data-home-kind]').forEach(b => b.addEventListener('cli
 /* ---------------- home ---------------- */
 const GENRES = ['All', 'Action', 'Comedy', 'Drama', 'Crime', 'Thriller', 'Sci-Fi', 'Animation', 'Romance', 'Horror', 'Adventure', 'Mystery', 'Family', 'Fantasy'];
 async function bootData() {
-  let pid = store.profileId;
-  if (!pid) {
+  let pid = store.profileId || '0';
+  if (store.token && (!store.profileId || store.profileId === '0')) {
     try {
       const me = await api('/auth/me');
       if (me.profiles && me.profiles.length > 0) {
@@ -182,7 +235,6 @@ async function bootData() {
         renderAccount(me);
       }
     } catch {}
-    if (!pid) pid = '1';
   }
   try {
     const kindQuery = state.homeKind ? '&kind=' + encodeURIComponent(state.homeKind) : '';
@@ -206,7 +258,16 @@ async function bootData() {
     toast('Error loading catalog: ' + e.message);
   }
 }
-async function refreshMyListIds() { try { const d = await api('/user/mylist?profileId=' + store.profileId); state.myList = new Set(d.items.map(i => i.id)); } catch {} }
+async function refreshMyListIds() {
+  if (!store.token) {
+    try {
+      const guestIds = JSON.parse(localStorage.getItem('cmx_guest_list') || '[]');
+      state.myList = new Set(guestIds.map(Number));
+    } catch {}
+    return;
+  }
+  try { const d = await api('/user/mylist?profileId=' + (store.profileId || 0)); state.myList = new Set(d.items.map(i => i.id)); } catch {}
+}
 function renderHero() {
   const f = (state.home && state.home.featured) || [];
   const wrap = $('#heroContent');
@@ -323,7 +384,20 @@ async function loadDetails(id, pushState = true) {
       <div class="details-cols">
         <div>
           <div class="menu-label" style="color:var(--muted-2)">TOP CAST</div>
-          <div class="cast-row">${cast.map(c => `<div class="cast-chip"><div class="avatar-circle">${esc((c.name || '?').split(' ').map(w => w[0]).slice(0, 2).join(''))}</div><div>${esc(c.name)}</div><div style="color:var(--muted-2)">${esc(c.character || '')}</div></div>`).join('')}</div>
+          <div class="cast-row">${cast.map(c => {
+            const initials = esc((c.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase());
+            const imgUrl = c.profile ? posterUrl(c.profile) : (c.image ? posterUrl(c.image) : null);
+            return `
+              <div class="cast-chip">
+                ${imgUrl ?
+                  `<img class="avatar-circle" src="${esc(imgUrl)}" alt="${esc(c.name)}" loading="lazy" onerror="this.outerHTML='<div class=\\'avatar-circle\\'>${initials}</div>'"/>` :
+                  `<div class="avatar-circle">${initials}</div>`
+                }
+                <div class="cast-name" title="${esc(c.name)}">${esc(c.name)}</div>
+                <div class="cast-char" title="${esc(c.character || '')}">${esc(c.character || '')}</div>
+              </div>
+            `;
+          }).join('')}</div>
           ${seasons.length ? `<div class="menu-label" style="color:var(--muted-2);margin-top:18px">EPISODES</div>
           <div class="ep-list">${seasons.map(s => s.episodes.map(e => `<div class="ep"><div class="ep-num">${e.episodeNumber}</div><div class="ep-name"><b>${esc(e.name)}</b><br/><span class="muted">${esc(String(e.overview || '').slice(0, 110))}${String(e.overview || '').length > 110 ? '…' : ''}</span></div><span class="ep-rt">${e.runtime}m</span><button class="ep-play" data-ep="${e.id}" data-name="${esc(e.name)}">▶</button></div>`).join('')).join('')}</div>` : ''}
           ${similar.length ? `<div class="menu-label" style="color:var(--muted-2);margin-top:18px">MORE LIKE THIS</div><div class="similar-row">${similar.map(s => `<div class="mini-card" data-id="${s.id}"><img loading="lazy" referrerpolicy="no-referrer" src="${esc(posterUrl(s.poster))}" alt="${esc(s.title)}"/><div>${esc(s.title)}</div></div>`).join('')}</div>` : ''}
@@ -342,7 +416,7 @@ async function loadDetails(id, pushState = true) {
   $('#dPlay').addEventListener('click', () => tryPlay(d, progress));
   $('#dList').addEventListener('click', async () => { await toggleMyList(d); $('#dList').textContent = state.myList.has(d.id) ? '✓ In My List' : '+ My List'; });
   $('#dShare').addEventListener('click', async () => { const url = location.origin + '/#title-' + d.id; try { await navigator.clipboard.writeText(url); toast('Link copied to clipboard.'); } catch { toast(url); } });
-  $('#dDownload').addEventListener('click', async () => { try { await api('/user/downloads', { method: 'POST', body: { profileId: +store.profileId, titleId: d.id, quality: '720p' } }); toast('Download queued — see Downloads tab.'); } catch (e) { toast(e.message); } });
+  $('#dDownload').addEventListener('click', async () => { try { await api('/user/downloads', { method: 'POST', body: { profileId: +(store.profileId || 0), titleId: d.id, quality: '720p' } }); toast('Download queued — see Downloads tab.'); } catch (e) { toast(e.message); } });
   $$('.mini-card', card).forEach(el => el.addEventListener('click', () => loadDetails(+el.dataset.id)));
   $$('.ep-play[data-ep]', card).forEach(btn => btn.addEventListener('click', () => { if (btn.disabled) return; playStream(d, +btn.dataset.ep, btn.dataset.name); }));
   m.classList.add('open');
@@ -350,9 +424,24 @@ async function loadDetails(id, pushState = true) {
 }
 async function toggleMyList(t) {
   const has = state.myList.has(t.id);
+  if (!store.token) {
+    let guestIds = [];
+    try { guestIds = JSON.parse(localStorage.getItem('cmx_guest_list') || '[]'); } catch {}
+    if (has) {
+      guestIds = guestIds.filter(id => Number(id) !== Number(t.id));
+      state.myList.delete(t.id);
+      toast('Removed from My List.');
+    } else {
+      if (!guestIds.includes(t.id)) guestIds.push(t.id);
+      state.myList.add(t.id);
+      toast('Added to My List.');
+    }
+    localStorage.setItem('cmx_guest_list', JSON.stringify(guestIds));
+    return;
+  }
   try {
-    if (has) { await api(`/user/mylist/${t.id}?profileId=${store.profileId}`, { method: 'DELETE' }); state.myList.delete(t.id); toast('Removed from My List.'); }
-    else { await api('/user/mylist', { method: 'POST', body: { profileId: +store.profileId, titleId: t.id } }); state.myList.add(t.id); toast('Added to My List.'); }
+    if (has) { await api(`/user/mylist/${t.id}?profileId=${store.profileId || 0}`, { method: 'DELETE' }); state.myList.delete(t.id); toast('Removed from My List.'); }
+    else { await api('/user/mylist', { method: 'POST', body: { profileId: +(store.profileId || 0), titleId: t.id } }); state.myList.add(t.id); toast('Added to My List.'); }
   } catch (e) { toast(e.message); }
 }
 
@@ -624,7 +713,24 @@ window.addEventListener('blur', () => {
 /* ---------------- my list / downloads ---------------- */
 async function loadMyList() {
   const grid = $('#myListGrid'); grid.innerHTML = '<p class="muted">Loading…</p>';
-  try { const d = await api('/user/mylist?profileId=' + store.profileId); grid.innerHTML = d.items.length ? d.items.map(cardHtml).join('') : '<p class="muted">Your list is empty. Tap + My List on any title.</p>'; bindCards(grid); }
+  try {
+    if (!store.token) {
+      let guestIds = [];
+      try { guestIds = JSON.parse(localStorage.getItem('cmx_guest_list') || '[]'); } catch {}
+      if (!guestIds.length) {
+        grid.innerHTML = '<p class="muted">Your list is empty. Tap + My List on any title.</p>';
+        return;
+      }
+      const all = await Promise.all(guestIds.map(id => api('/titles/' + id).catch(() => null)));
+      const items = all.filter(Boolean);
+      grid.innerHTML = items.length ? items.map(cardHtml).join('') : '<p class="muted">Your list is empty. Tap + My List on any title.</p>';
+      bindCards(grid);
+      return;
+    }
+    const d = await api('/user/mylist?profileId=' + (store.profileId || 0));
+    grid.innerHTML = d.items.length ? d.items.map(cardHtml).join('') : '<p class="muted">Your list is empty. Tap + My List on any title.</p>';
+    bindCards(grid);
+  }
   catch (e) { grid.innerHTML = '<p class="muted">' + esc(e.message) + '</p>'; }
 }
 async function loadDownloads() {
@@ -866,7 +972,8 @@ if (closeBannerBtn) {
 /* ---------------- boot ---------------- */
 (async function init() {
   if (!store.token) {
-    openAuth(false);
+    renderGuestAccount();
+    await bootData();
     return;
   }
   try {
@@ -876,6 +983,10 @@ if (closeBannerBtn) {
     renderAccount(me);
     await bootData();
   } catch (e) {
-    signOut(true);
+    store.token = null;
+    store.user = null;
+    store.profileId = null;
+    renderGuestAccount();
+    await bootData();
   }
 })();

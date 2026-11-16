@@ -1,21 +1,30 @@
 const express = require('express');
 const db = require('./db');
-const { authRequired } = require('./auth');
+const { optionalAuth } = require('./auth');
 const { mapTitle, track } = require('./util');
 
 const router = express.Router();
-router.use(authRequired);
+router.use(optionalAuth);
 
 function ownProfile(req, res, id) {
+  if (!req.user || req.user.id === 0) {
+    return { id: 0, user_id: 0, name: 'Guest', avatar_color: '#E50914', is_kids: 0, audio_language: 'en', subtitle_language: 'en', app_language: 'en', video_quality: 'auto', autoplay: 1, notifications: 1 };
+  }
   const p = db.prepare('SELECT * FROM profiles WHERE id=? AND user_id=?').get(Number(id), req.user.id);
   if (!p) res.status(404).json({ error: 'PROFILE_NOT_FOUND', message: 'Profile not found.' });
   return p;
 }
 const dto = p => ({ id: p.id, name: p.name, avatarColor: p.avatar_color, isKids: !!p.is_kids, audioLanguage: p.audio_language, subtitleLanguage: p.subtitle_language, appLanguage: p.app_language, videoQuality: p.video_quality, autoplay: !!p.autoplay, notifications: !!p.notifications });
 
-router.get('/profiles', (req, res) => res.json({ profiles: db.prepare('SELECT * FROM profiles WHERE user_id=? ORDER BY id').all(req.user.id).map(dto) }));
+router.get('/profiles', (req, res) => {
+  if (!req.user || req.user.id === 0) {
+    return res.json({ profiles: [{ id: 0, name: 'Guest', avatarColor: '#E50914', isKids: false, audioLanguage: 'en', subtitleLanguage: 'en', appLanguage: 'en', videoQuality: 'auto', autoplay: true, notifications: true }] });
+  }
+  res.json({ profiles: db.prepare('SELECT * FROM profiles WHERE user_id=? ORDER BY id').all(req.user.id).map(dto) });
+});
 
 router.post('/profiles', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.status(401).json({ error: 'AUTH_REQUIRED', message: 'Please sign in to create profiles.' });
   const count = db.prepare('SELECT COUNT(*) c FROM profiles WHERE user_id=?').get(req.user.id).c;
   if (count >= 5) return res.status(400).json({ error: 'LIMIT', message: 'Maximum 5 profiles per account.' });
   const { name, isKids, avatarColor } = req.body || {};
@@ -27,6 +36,7 @@ router.post('/profiles', (req, res) => {
 });
 
 router.put('/profiles/:id', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.status(401).json({ error: 'AUTH_REQUIRED', message: 'Please sign in to edit profiles.' });
   const p = ownProfile(req, res, req.params.id); if (!p) return;
   const { name, isKids, avatarColor, audioLanguage, subtitleLanguage, appLanguage, videoQuality, autoplay, notifications } = req.body || {};
   const cleanQuality = ['auto','480p','720p','1080p','4k'].includes(String(videoQuality||'')) ? String(videoQuality).toLowerCase().replace('4k','4K') : p.video_quality;
@@ -38,6 +48,7 @@ router.put('/profiles/:id', (req, res) => {
 });
 
 router.delete('/profiles/:id', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.status(401).json({ error: 'AUTH_REQUIRED', message: 'Please sign in to delete profiles.' });
   const p = ownProfile(req, res, req.params.id); if (!p) return;
   const count = db.prepare('SELECT COUNT(*) c FROM profiles WHERE user_id=?').get(req.user.id).c;
   if (count <= 1) return res.status(400).json({ error: 'LIMIT', message: 'You must keep at least one profile.' });
@@ -51,9 +62,9 @@ router.get('/settings', (req, res) => {
 });
 
 router.put('/settings', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ settings: { id: 0, name: 'Guest', videoQuality: 'auto' } });
   const p = ownProfile(req, res, req.body?.profileId); if (!p) return;
   req.params = { ...req.params, id: String(p.id) };
-  // reuse profile update logic inline
   const { audioLanguage, subtitleLanguage, appLanguage, videoQuality, autoplay, notifications } = req.body || {};
   const cleanQuality = ['auto','480p','720p','1080p','4k'].includes(String(videoQuality||'')) ? String(videoQuality).toLowerCase().replace('4k','4K') : p.video_quality;
   db.prepare(`UPDATE profiles SET audio_language=COALESCE(?,audio_language), subtitle_language=COALESCE(?,subtitle_language), app_language=COALESCE(?,app_language), video_quality=?, autoplay=COALESCE(?,autoplay), notifications=COALESCE(?,notifications) WHERE id=?`)
@@ -63,12 +74,14 @@ router.put('/settings', (req, res) => {
 
 // ---------- My List ----------
 router.get('/mylist', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ items: [] });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   const rows = db.prepare('SELECT t.* FROM my_list m JOIN titles t ON t.id=m.title_id WHERE m.profile_id=? ORDER BY m.added_at DESC').all(p.id);
   const counts = new Map(db.prepare('SELECT title_id, COUNT(*) c FROM streams GROUP BY title_id').all().map(r => [r.title_id, r.c]));
   res.json({ items: rows.map(r => mapTitle(r, { streamCount: counts.get(r.id) || 0 })) });
 });
 router.post('/mylist', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ message: 'Saved to local list.', titleId: req.body?.titleId });
   const p = ownProfile(req, res, req.body?.profileId); if (!p) return;
   const tid = parseInt(req.body?.titleId, 10);
   if (!db.prepare('SELECT id FROM titles WHERE id=?').get(tid)) return res.status(404).json({ error: 'NOT_FOUND', message: 'Title not found.' });
@@ -76,6 +89,7 @@ router.post('/mylist', (req, res) => {
   res.status(201).json({ message: 'Added to My List.', titleId: tid });
 });
 router.delete('/mylist/:titleId', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ message: 'Removed from local list.' });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   db.prepare('DELETE FROM my_list WHERE profile_id=? AND title_id=?').run(p.id, parseInt(req.params.titleId, 10));
   res.json({ message: 'Removed from My List.' });
@@ -83,11 +97,13 @@ router.delete('/mylist/:titleId', (req, res) => {
 
 // ---------- Progress / continue watching ----------
 router.get('/progress', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ progress: null });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   const pr = db.prepare('SELECT * FROM watch_progress WHERE profile_id=? AND title_id=? AND episode_id=?').get(p.id, parseInt(req.query.titleId, 10), parseInt(req.query.episodeId || '0', 10));
   res.json({ progress: pr ? { position: pr.position_sec, duration: pr.duration_sec, updatedAt: pr.updated_at } : null });
 });
 router.put('/progress', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ message: 'Guest progress acknowledged.' });
   const p = ownProfile(req, res, req.body?.profileId); if (!p) return;
   const { titleId, episodeId, positionSec, durationSec } = req.body || {};
   const tid = parseInt(titleId, 10), eid = parseInt(episodeId || 0, 10);
@@ -99,7 +115,8 @@ router.put('/progress', (req, res) => {
   if (pos > 30 || dur > 0) db.prepare('INSERT INTO watch_history (profile_id,title_id,episode_id) VALUES (?,?,?)').run(p.id, tid, eid);
   res.json({ message: 'Progress saved.' });
 });
-router.delete('/progress', (req, res) => { // clear one title or all
+router.delete('/progress', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ message: 'Progress cleared.' });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   if (req.query.titleId) db.prepare('DELETE FROM watch_progress WHERE profile_id=? AND title_id=?').run(p.id, parseInt(req.query.titleId, 10));
   else db.prepare('DELETE FROM watch_progress WHERE profile_id=?').run(p.id);
@@ -107,20 +124,23 @@ router.delete('/progress', (req, res) => { // clear one title or all
 });
 
 router.get('/history', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ items: [] });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   const rows = db.prepare(`SELECT t.*, MAX(h.watched_at) last FROM watch_history h JOIN titles t ON t.id=h.title_id WHERE h.profile_id=? GROUP BY t.id ORDER BY last DESC LIMIT 50`).all(p.id);
   const counts = new Map(db.prepare('SELECT title_id, COUNT(*) c FROM streams GROUP BY title_id').all().map(r => [r.title_id, r.c]));
   res.json({ items: rows.map(r => mapTitle(r, { streamCount: counts.get(r.id) || 0 })) });
 });
 router.delete('/history', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ message: 'Watch history cleared.' });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   db.prepare('DELETE FROM watch_history WHERE profile_id=?').run(p.id);
   db.prepare('DELETE FROM watch_progress WHERE profile_id=?').run(p.id);
   res.json({ message: 'Watch history cleared.' });
 });
 
-// ---------- Downloads (only provider-permitted content) ----------
+// ---------- Downloads ----------
 router.get('/downloads', (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ items: [] });
   const p = ownProfile(req, res, req.query.profileId); if (!p) return;
   const rows = db.prepare('SELECT d.*, t.title, t.slug, t.poster_url, t.kind, t.license FROM downloads d JOIN titles t ON t.id=d.title_id WHERE d.profile_id=? ORDER BY d.added_at DESC').all(p.id);
   res.json({ items: rows.map(r => ({ id: r.id, titleId: r.title_id, episodeId: r.episode_id || null, quality: r.quality, status: r.status, progress: r.progress, title: r.title, slug: r.slug, poster: r.poster_url || `/posters/${r.slug}.svg`, kind: r.kind, license: r.license })) });

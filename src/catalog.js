@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('./db');
-const { authRequired, publicUser } = require('./auth');
+const { authRequired, optionalAuth, publicUser } = require('./auth');
 const { csv, mapTitle, kidsFilter, pageParams, track } = require('./util');
 const { getPlayerSources, PLAYER_SOURCES } = require('./playerSources');
 const { searchUniversal, autoIndexTitle } = require('./universalCatalog');
@@ -17,11 +17,17 @@ function mapRows(rows) {
   return rows.map(r => mapTitle(r, { streamCount: counts.get(r.id) || 0 }));
 }
 function profileById(req, res, profileId) {
+  if (!req.user || req.user.id === 0) {
+    return { id: 0, user_id: 0, name: 'Guest', avatar_color: '#E50914', is_kids: 0, audio_language: 'en', subtitle_language: 'en' };
+  }
   const p = db.prepare('SELECT * FROM profiles WHERE id=? AND user_id=?').get(Number(profileId), req.user.id);
   if (!p) res.status(404).json({ error: 'PROFILE_NOT_FOUND', message: 'Profile not found.' });
   return p;
 }
 function getProfile(req, res) {
+  if (!req.user || req.user.id === 0) {
+    return { id: 0, user_id: 0, name: 'Guest', avatar_color: '#E50914', is_kids: 0, audio_language: 'en', subtitle_language: 'en' };
+  }
   const pid = req.query.profileId || req.body?.profileId;
   if (!pid) { res.status(400).json({ error: 'VALIDATION', message: 'profileId is required.' }); return null; }
   return profileById(req, res, pid);
@@ -43,7 +49,7 @@ function filteredQuery(q, isKids) {
   return { where, args, sort };
 }
 
-router.get('/titles', authRequired, (req, res) => {
+router.get('/titles', optionalAuth, (req, res) => {
   const { page, limit, offset } = pageParams(req.query, 20);
   const isKids = req.query.kids === '1';
   const { where, args, sort } = filteredQuery(req.query, isKids);
@@ -52,13 +58,35 @@ router.get('/titles', authRequired, (req, res) => {
   res.json({ page, limit, total, totalPages: Math.ceil(total / limit), results: mapRows(rows) });
 });
 
-router.get('/titles/:id', authRequired, (req, res) => {
+router.get('/titles/:id', optionalAuth, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const row = db.prepare('SELECT * FROM titles WHERE id=?').get(id);
   if (!row) return res.status(404).json({ error: 'NOT_FOUND', message: 'Title not found.' });
   const streamRows = db.prepare('SELECT * FROM streams WHERE title_id=? ORDER BY id').all(id);
   const epPlayable = row.kind === 'series' ? db.prepare("SELECT COUNT(*) c FROM episodes e JOIN seasons s ON s.id=e.season_id WHERE s.title_id=? AND e.stream_url IS NOT NULL").get(id).c : 0;
   const title = mapTitle(row, { withStreams: true, streamCount: streamRows.length + epPlayable, streams: streamRows });
+
+  // Dynamically enrich cast with official TMDB profile headshots if missing
+  if (row.tmdb_id && (!title.cast || title.cast.length === 0 || !title.cast[0]?.profile)) {
+    try {
+      const TMDB_KEY = process.env.TMDB_API_KEY || 'e4b1049386d34bcf9f6ea9e1a8bb28a7';
+      const mType = row.kind === 'series' ? 'tv' : 'movie';
+      const cres = await fetch(`https://api.themoviedb.org/3/${mType}/${row.tmdb_id}/credits?api_key=${TMDB_KEY}`);
+      if (cres.ok) {
+        const cdata = await cres.json();
+        if (cdata.cast && cdata.cast.length > 0) {
+          const enriched = cdata.cast.slice(0, 12).map(c => ({
+            name: c.name,
+            character: c.character,
+            profile: c.profile_path ? ('https://image.tmdb.org/t/p/w185' + c.profile_path) : null
+          }));
+          title.cast = enriched;
+          try { db.prepare('UPDATE titles SET cast_json=? WHERE id=?').run(JSON.stringify(enriched), id); } catch {}
+        }
+      }
+    } catch {}
+  }
+
   // similar: shared genre overlap + same kind, exclude self
   const gs = csv(row.genres);
   const candidates = db.prepare('SELECT * FROM titles WHERE id<>? AND kind=?').all(id, row.kind);
@@ -75,8 +103,8 @@ router.get('/titles/:id', authRequired, (req, res) => {
       }))
     }));
   }
-  // per-profile extras
-  const pid = req.query.profileId ? Number(req.query.profileId) : null;
+  // per-profile extras (for logged in users)
+  const pid = (req.user && req.user.id !== 0 && req.query.profileId) ? Number(req.query.profileId) : null;
   if (pid) {
     title.inMyList = !!db.prepare('SELECT 1 FROM my_list WHERE profile_id=? AND title_id=?').get(pid, id);
     const pr = db.prepare('SELECT * FROM watch_progress WHERE profile_id=? AND title_id=? AND episode_id=0').get(pid, id);
@@ -86,8 +114,8 @@ router.get('/titles/:id', authRequired, (req, res) => {
   res.json(title);
 });
 
-// stream manifest for the player — returns authorized source or TMDB embed servers
-router.get('/titles/:id/stream', authRequired, (req, res) => {
+// stream manifest for the player — returns authorized source or TMDB embed servers (available to guests!)
+router.get('/titles/:id/stream', optionalAuth, (req, res) => {
   const id = parseInt(req.params.id, 10);
   const row = db.prepare('SELECT * FROM titles WHERE id=?').get(id);
   if (!row) return res.status(404).json({ error: 'NOT_FOUND', message: 'Title not found.' });
@@ -163,8 +191,8 @@ router.get('/titles/:id/stream', authRequired, (req, res) => {
   return res.status(404).json({ error: 'STREAM_UNAVAILABLE', message: 'Streaming currently unavailable for this title.' });
 });
 
-router.get('/catalog/home', authRequired, (req, res) => {
-  const pid = req.query.profileId ? Number(req.query.profileId) : null;
+router.get('/catalog/home', optionalAuth, (req, res) => {
+  const pid = (req.user && req.user.id !== 0 && req.query.profileId) ? Number(req.query.profileId) : null;
   let isKids = req.query.kids === '1';
   let profile = null;
   if (pid) { profile = db.prepare('SELECT * FROM profiles WHERE id=? AND user_id=?').get(pid, req.user.id); if (profile) isKids = !!profile.is_kids; }
@@ -312,9 +340,9 @@ function ruleBasedRecommendations(profile, limit = 12) {
   return mapRows(scored);
 }
 
-router.get('/recommendations', authRequired, (req, res) => {
+router.get('/recommendations', optionalAuth, (req, res) => {
   const profile = getProfile(req, res); if (!profile) return;
-  const history = db.prepare('SELECT title_id FROM watch_history WHERE profile_id=? ORDER BY watched_at DESC LIMIT 1').get(profile.id);
+  const history = profile.id ? db.prepare('SELECT title_id FROM watch_history WHERE profile_id=? ORDER BY watched_at DESC LIMIT 1').get(profile.id) : null;
   let becauseYouWatched = { becauseOf: null, items: [] };
   if (history) {
     const base = db.prepare('SELECT * FROM titles WHERE id=?').get(history.title_id);
@@ -327,16 +355,16 @@ router.get('/recommendations', authRequired, (req, res) => {
     }
   }
   const counts = streamCounts();
-  const trendingInLanguage = mapRows(db.prepare(`SELECT * FROM titles WHERE is_trending=1 AND ','||audio_languages||',' LIKE '%,'||?||',%' ORDER BY popularity DESC LIMIT 12`).all(profile.audio_language));
+  const trendingInLanguage = mapRows(db.prepare(`SELECT * FROM titles WHERE is_trending=1 AND ','||audio_languages||',' LIKE '%,'||?||',%' ORDER BY popularity DESC LIMIT 12`).all(profile.audio_language || 'en'));
   res.json({
     recommendedForYou: ruleBasedRecommendations(profile, 12),
     becauseYouWatched,
     trendingInYourLanguage: trendingInLanguage,
-    personalizedFor: { audioLanguage: profile.audio_language, isKids: !!profile.is_kids }
+    personalizedFor: { audioLanguage: profile.audio_language || 'en', isKids: !!profile.is_kids }
   });
 });
 
-router.get('/search', authRequired, async (req, res) => {
+router.get('/search', optionalAuth, async (req, res) => {
   const q = String(req.query.q || '').trim();
   const { page, limit, offset } = pageParams(req.query, 20);
   const isKids = req.query.kids === '1';
@@ -365,13 +393,13 @@ router.get('/search', authRequired, async (req, res) => {
   const sort = SORTS[req.query.sort] || 'popularity DESC';
   const total = db.prepare(`SELECT COUNT(*) c FROM titles ${where}`).get(args).c;
   const rows = db.prepare(`SELECT * FROM titles ${where} ORDER BY ${sort} LIMIT @limit OFFSET @offset`).all({ ...args, limit, offset });
-  const pid = req.query.profileId ? Number(req.query.profileId) : null;
+  const pid = (req.user && req.user.id !== 0 && req.query.profileId) ? Number(req.query.profileId) : null;
   if (q && pid) db.prepare('INSERT INTO search_history (profile_id, query) VALUES (?,?)').run(pid, q.slice(0, 120));
   track(db, 'search', { q: q.slice(0, 120) });
   res.json({ query: q, page, limit, total, totalPages: Math.ceil(total / limit), results: mapRows(rows) });
 });
 
-router.get('/search/suggest', authRequired, (req, res) => {
+router.get('/search/suggest', optionalAuth, (req, res) => {
   const q = String(req.query.q || '').trim();
   if (q.length < 2) return res.json({ suggestions: [] });
   const like = `%${q}%`;
@@ -384,19 +412,21 @@ router.get('/search/suggest', authRequired, (req, res) => {
   res.json({ suggestions: [...new Set([...titles, ...actors])].slice(0, 10) });
 });
 
-router.get('/search/history', authRequired, (req, res) => {
+router.get('/search/history', optionalAuth, (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ history: [] });
   const profile = getProfile(req, res); if (!profile) return;
   const rows = db.prepare('SELECT query, MAX(searched_at) AS last FROM search_history WHERE profile_id=? GROUP BY query ORDER BY last DESC LIMIT 20').all(profile.id);
   res.json({ history: rows.map(r => r.query) });
 });
 
-router.delete('/search/history', authRequired, (req, res) => {
+router.delete('/search/history', optionalAuth, (req, res) => {
+  if (!req.user || req.user.id === 0) return res.json({ message: 'Search history cleared.' });
   const profile = getProfile(req, res); if (!profile) return;
   db.prepare('DELETE FROM search_history WHERE profile_id=?').run(profile.id);
   res.json({ message: 'Search history cleared.' });
 });
 
-router.get('/trending-searches', authRequired, (req, res) => {
+router.get('/trending-searches', optionalAuth, (req, res) => {
   res.json({ searches: ['RRR', 'Interstellar', 'Sacred Games', 'K.G.F', 'Stranger Things', 'Mirzapur', 'Inception', 'Baahubali', 'Dark', 'The Godfather'] });
 });
 
@@ -416,7 +446,7 @@ function fetchTmdbJson(url) {
 }
 
 // 1-Click Multi-API Importer search (TMDB + OMDb) (available to both APK and Web)
-router.get('/catalog/tmdb/search', authRequired, async (req, res) => {
+router.get('/catalog/tmdb/search', optionalAuth, async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json({ results: [] });
 

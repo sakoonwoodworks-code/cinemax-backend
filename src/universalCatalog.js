@@ -90,7 +90,11 @@ async function autoIndexTitle({ tmdbId, imdbId, kind, title, overview, poster, b
       if (tmdbData.origin_country && tmdbData.origin_country[0]) fullCountry = tmdbData.origin_country[0];
       if (tmdbData.external_ids?.imdb_id) imdbId = tmdbData.external_ids.imdb_id;
       if (tmdbData.credits?.cast) {
-        fullCast = JSON.stringify(tmdbData.credits.cast.slice(0, 10).map(c => ({ name: c.name, character: c.character })));
+        fullCast = JSON.stringify(tmdbData.credits.cast.slice(0, 12).map(c => ({
+          name: c.name,
+          character: c.character,
+          profile: c.profile_path ? ('https://image.tmdb.org/t/p/w185' + c.profile_path) : null
+        })));
       }
       if (tType === 'tv' && tmdbData.number_of_seasons) {
         totalSeasons = Math.min(tmdbData.number_of_seasons, 5);
@@ -114,6 +118,8 @@ async function autoIndexTitle({ tmdbId, imdbId, kind, title, overview, poster, b
   }
 
   if (!fullTitle) return null;
+  // Normalize non-ASCII accents for clear display (e.g. Bãhubali / Bāhubali -> Baahubali)
+  fullTitle = fullTitle.replace(/B[āãá]hubali/gi, 'Baahubali').replace(/[ā]/g, 'a').replace(/[ã]/g, 'a').replace(/[í]/g, 'i').replace(/[é]/g, 'e').replace(/[ó]/g, 'o').replace(/[ú]/g, 'u');
   if (!fullBackdrop) fullBackdrop = fullPoster;
 
   // Language & audio determination
