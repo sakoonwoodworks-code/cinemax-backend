@@ -204,3 +204,191 @@ button{font-family:var(--font);cursor:pointer;border:none;background:none;color:
 
 @media(max-width:1100px){.topnav{display:none}.searchbox{width:200px}.searchbox:focus-within{width:220px}}
 @media(max-width:640px){.hero-content{padding-bottom:14vh}.logo{font-size:1.15rem}.card{flex-basis:132px;width:132px}.details-hero{aspect-ratio:16/12}}
+
+/* ---------- Android App Download Features ---------- */
+.btn-app-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(46, 213, 115, 0.16), rgba(0, 184, 148, 0.22));
+  border: 1px solid rgba(46, 213, 115, 0.45);
+  color: #2ed573;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.btn-app-download:hover {
+  background: linear-gradient(135deg, rgba(46, 213, 115, 0.32), rgba(0, 184, 148, 0.42));
+  border-color: #2ed573;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(46, 213, 115, 0.35);
+}
+.btn-app-download svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+.btn-app-download:hover svg {
+  transform: scale(1.15);
+}
+
+.mobile-app-banner {
+  position: relative;
+  background: linear-gradient(90deg, #101c14, #151518);
+  border-bottom: 1px solid rgba(46, 213, 115, 0.25);
+  padding: 10px 4vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 40;
+  margin-top: 64px;
+}
+.mobile-app-banner.hidden {
+  display: none !important;
+}
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.banner-icon {
+  font-size: 1.4rem;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: rgba(46, 213, 115, 0.15);
+  border-radius: 8px;
+}
+.banner-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+}
+.banner-sub {
+  font-size: 0.74rem;
+  color: #a1a1aa;
+}
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-banner-download {
+  background: #2ed573;
+  color: #000;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  box-shadow: 0 2px 10px rgba(46, 213, 115, 0.4);
+  transition: transform 0.15s ease;
+  white-space: nowrap;
+}
+.btn-banner-download:hover {
+  transform: scale(1.04);
+}
+.banner-close {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+.banner-close:hover {
+  color: #fff;
+}
+
+.android-app-card {
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #131c16, #0e1011);
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  border-radius: 14px;
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+.app-card-info {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+  min-width: 260px;
+}
+.app-card-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(46, 213, 115, 0.15);
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+.app-card-info h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  color: #fff;
+  font-weight: 800;
+}
+.app-card-info p {
+  margin: 0 0 6px;
+  font-size: 0.86rem;
+  color: #a1a1aa;
+  line-height: 1.4;
+}
+.app-card-meta {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: #2ed573;
+  font-weight: 600;
+}
+.btn-download-apk {
+  background: #2ed573;
+  color: #000;
+  font-weight: 800;
+  border: none;
+  box-shadow: 0 6px 20px rgba(46, 213, 115, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 9px;
+  text-decoration: none;
+  font-size: 0.92rem;
+  transition: transform 0.15s, filter 0.2s;
+  white-space: nowrap;
+}
+.btn-download-apk:hover {
+  background: #26af5f;
+  color: #fff;
+  transform: translateY(-1px) scale(1.02);
+}
+
+@media (max-width: 900px) {
+  .btn-app-download span {
+    display: none;
+  }
+  .btn-app-download {
+    padding: 8px 10px;
+  }
+}
+@media (min-width: 901px) {
+  .mobile-app-banner {
+    display: none;
+  }
+}

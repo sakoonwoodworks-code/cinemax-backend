@@ -841,6 +841,20 @@ $('#addTitleForm').addEventListener('submit', async ev => {
   } catch (e) { toast(e.message); }
 });
 
+// Mobile Android App Banner Close handler
+const closeBannerBtn = $('#closeBannerBtn');
+if (closeBannerBtn) {
+  closeBannerBtn.addEventListener('click', () => {
+    const banner = $('#mobileAppBanner');
+    if (banner) banner.classList.add('hidden');
+    sessionStorage.setItem('hideAppBanner', '1');
+  });
+  if (sessionStorage.getItem('hideAppBanner') === '1') {
+    const banner = $('#mobileAppBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+}
+
 /* ---------------- boot ---------------- */
 (async function init() {
   if (!store.token) {

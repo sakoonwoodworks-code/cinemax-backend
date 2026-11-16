@@ -94,6 +94,17 @@ app.get('/api/proxy/image', async (req, res) => {
   }
 });
 
+// Direct Android APK download endpoints
+app.get(['/download', '/download/android', '/cinemax.apk', '/download/apk', '/api/download/android'], (req, res) => {
+  const apkPath = path.join(__dirname, '..', 'public', 'CineMax.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.download(apkPath, 'CineMax.apk', (err) => {
+    if (err && !res.headersSent) {
+      res.redirect('/CineMax.apk');
+    }
+  });
+});
+
 app.use('/api', (req, res) => res.status(404).json({ error: 'NOT_FOUND', message: 'Unknown endpoint.' }));
 app.use('/api', (err, req, res, next) => { console.error('[CineMax] API error:', err); res.status(500).json({ error: 'SERVER_ERROR', message: 'Unexpected server error.' }); });
 
