@@ -69,7 +69,7 @@ router.get('/titles/:id', optionalAuth, async (req, res) => {
   // Dynamically enrich cast with official TMDB profile headshots if missing
   if (row.tmdb_id && (!title.cast || title.cast.length === 0 || !title.cast[0]?.profile)) {
     try {
-      const TMDB_KEY = process.env.TMDB_API_KEY || 'e4b1049386d34bcf9f6ea9e1a8bb28a7';
+      const TMDB_KEY = process.env.TMDB_API_KEY || '844dba0bfd8f3a4f3799f6130ef9e335';
       const mType = row.kind === 'series' ? 'tv' : 'movie';
       const cres = await fetch(`https://api.themoviedb.org/3/${mType}/${row.tmdb_id}/credits?api_key=${TMDB_KEY}`);
       if (cres.ok) {

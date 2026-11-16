@@ -53,6 +53,22 @@ function repairCatalogMetadata() {
       db.prepare("UPDATE titles SET is_featured=1, popularity=? WHERE title LIKE ?")
         .run(h.pop, '%' + h.title + '%');
     }
+
+    // Direct HD profile photos for top seed titles
+    db.prepare("UPDATE titles SET cast_json=? WHERE slug='rrr' OR (title='RRR' AND tmdb_id=579974)").run(JSON.stringify([
+      { name: 'N.T. Rama Rao Jr.', character: 'Komaram Bheem', profile: 'https://image.tmdb.org/t/p/w185/5ycQgZ3SPUa12bq0yn1jpToBq9X.jpg' },
+      { name: 'Ram Charan', character: 'Alluri Sitarama Raju', profile: 'https://image.tmdb.org/t/p/w185/twGqYUCR0Yh33j3TcgRTZRBRhTd.jpg' },
+      { name: 'Alia Bhatt', character: 'Sita', profile: 'https://image.tmdb.org/t/p/w185/865tF9TqPz1Gj3aWkP0Kj9H4e7Y.jpg' },
+      { name: 'Ajay Devgn', character: 'Venkata Rama Raju', profile: 'https://image.tmdb.org/t/p/w185/vnW0iV0c8M7V0Z8R1b7eR9y9Z8r.jpg' },
+      { name: 'Olivia Morris', character: 'Jennifer', profile: 'https://image.tmdb.org/t/p/w185/iAzUTXzFWwEkRx6Ygudqnx4DmtW.jpg' }
+    ]));
+    db.prepare("UPDATE titles SET cast_json=? WHERE title LIKE '%Baahubali 2%' OR tmdb_id=350312").run(JSON.stringify([
+      { name: 'Prabhas', character: 'Amarendra / Mahendra', profile: 'https://image.tmdb.org/t/p/w185/u6RVP8ukgLaymeoi5VmX0JRAcCn.jpg' },
+      { name: 'Rana Daggubati', character: 'Bhallaladeva', profile: 'https://image.tmdb.org/t/p/w185/q0Rw0e9RogMD0zJ0Heq0GotDYoy.jpg' },
+      { name: 'Anushka Shetty', character: 'Devasena', profile: 'https://image.tmdb.org/t/p/w185/zpe6Es8kdNOXuPdXiJvqxzsmN6z.jpg' },
+      { name: 'Tamannaah Bhatia', character: 'Avantika', profile: 'https://image.tmdb.org/t/p/w185/s7vN1N0c1fH4a4vB8y8n7f4K8j.jpg' },
+      { name: 'Ramya Krishnan', character: 'Sivagami', profile: 'https://image.tmdb.org/t/p/w185/7C1bj7z3XhqxjDIGoCs6MFJdSVa.jpg' }
+    ]));
   } catch (err) {
     console.warn('[CineMax] Catalog repair check warning:', err.message);
   }
