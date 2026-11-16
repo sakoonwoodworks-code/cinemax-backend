@@ -317,7 +317,7 @@ async function loadDetails(id, pushState = true) {
           <div class="menu-label" style="color:var(--muted-2)">TOP CAST</div>
           <div class="cast-row">${cast.map(c => `<div class="cast-chip"><div class="avatar-circle">${esc((c.name || '?').split(' ').map(w => w[0]).slice(0, 2).join(''))}</div><div>${esc(c.name)}</div><div style="color:var(--muted-2)">${esc(c.character || '')}</div></div>`).join('')}</div>
           ${seasons.length ? `<div class="menu-label" style="color:var(--muted-2);margin-top:18px">EPISODES</div>
-          <div class="ep-list">${seasons.map(s => s.episodes.map(e => `<div class="ep"><div class="ep-num">${e.episodeNumber}</div><div class="ep-name"><b>${esc(e.name)}</b><br/><span class="muted">${esc(String(e.overview || '').slice(0, 110))}${String(e.overview || '').length > 110 ? '…' : ''}</span></div><span class="ep-rt">${e.runtime}m</span><button class="ep-play" data-ep="${e.id}" data-name="${esc(e.name)}" ${e.playable ? '' : 'disabled title="No licensed source" style="opacity:.35;cursor:not-allowed"'}>▶</button></div>`).join('')).join('')}</div>` : ''}
+          <div class="ep-list">${seasons.map(s => s.episodes.map(e => `<div class="ep"><div class="ep-num">${e.episodeNumber}</div><div class="ep-name"><b>${esc(e.name)}</b><br/><span class="muted">${esc(String(e.overview || '').slice(0, 110))}${String(e.overview || '').length > 110 ? '…' : ''}</span></div><span class="ep-rt">${e.runtime}m</span><button class="ep-play" data-ep="${e.id}" data-name="${esc(e.name)}">▶</button></div>`).join('')).join('')}</div>` : ''}
           ${similar.length ? `<div class="menu-label" style="color:var(--muted-2);margin-top:18px">MORE LIKE THIS</div><div class="similar-row">${similar.map(s => `<div class="mini-card" data-id="${s.id}"><img loading="lazy" referrerpolicy="no-referrer" src="${esc(posterUrl(s.poster))}" alt="${esc(s.title)}"/><div>${esc(s.title)}</div></div>`).join('')}</div>` : ''}
         </div>
         <aside class="details-side">
@@ -353,7 +353,8 @@ async function tryPlay(t, resumePct) {
   const d = t.streams ? t : await api(`/titles/${t.id}?profileId=${store.profileId}`);
   let episodeId = null, episodeName = null;
   if (d.kind === 'series') {
-    const first = (d.seasons || []).flatMap(s => s.episodes).find(e => e.playable);
+    const allEps = (d.seasons || []).flatMap(s => s.episodes || []);
+    const first = allEps.find(e => e.playable) || allEps[0];
     if (first) { episodeId = first.id; episodeName = first.name; }
   }
   playStream(d, episodeId, episodeName, resumePct);
