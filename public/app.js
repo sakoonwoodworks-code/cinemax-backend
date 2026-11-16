@@ -465,8 +465,10 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   const nextBtn = $('#nextEpisodeBtn');
   const servers = manifest.servers || [];
   
-  $('#playerTitle').textContent = t.title + (episodeName ? ' — ' + episodeName : '');
-  $('#playerSub').textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
+  const pTitle = $('#playerTitle');
+  if (pTitle) pTitle.textContent = t.title + (episodeName ? ' — ' + episodeName : '');
+  const pSub = $('#playerSub');
+  if (pSub) pSub.textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
   // Custom CineMax Loading Animation
   const loader = $('#playerLoader');
@@ -479,18 +481,19 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     clearTimeout(window._loaderTimer);
     window._loaderTimer = setTimeout(() => {
       loader.style.opacity = '0';
-      setTimeout(() => { loader.style.display = 'none'; }, 350);
-    }, 4000);
+      setTimeout(() => { loader.style.display = 'none'; }, 400);
+    }, 4500);
   }
-  function hideLoader(delayMs = 600) {
-    setTimeout(() => {
+  function hideLoader(delayMs = 2600) {
+    clearTimeout(window._loaderTimer);
+    window._loaderTimer = setTimeout(() => {
       if (loader) {
         loader.style.opacity = '0';
-        setTimeout(() => { loader.style.display = 'none'; }, 350);
+        setTimeout(() => { loader.style.display = 'none'; }, 400);
       }
     }, delayMs);
   }
-  showLoader('Connecting to ' + (manifest.provider || 'Zero-Buffering Stream') + '…');
+  showLoader('Connecting to Zero-Buffering Stream…');
 
   // Multi-server selector setup
   const multiBadge = $('#multiAudioBadge');
@@ -623,7 +626,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     video.style.display = 'none';
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     iframe.removeAttribute('sandbox');
-    iframe.onload = () => hideLoader(750);
+    iframe.onload = () => hideLoader(2500);
     iframe.src = manifest.url;
     iframe.style.display = 'block';
     activateClickShield(manifest.url);
@@ -663,7 +666,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     clearInterval(state.progressTimer);
     state.progressTimer = setInterval(saveProgress, 5000);
     video.onpause = () => saveProgress();
-    video.onended = () => { saveProgress(); clearInterval(state.progressTimer); if (nextBtn.style.display !== 'none') toast('Episode finished — next episode ready.'); };
+    video.onended = () => { saveProgress(); clearInterval(state.progressTimer); if (nextBtn && nextBtn.style.display !== 'none') toast('Episode finished — next episode ready.'); };
   }
 
   $('#playerModal').classList.add('open');
