@@ -468,12 +468,36 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   $('#playerTitle').textContent = t.title + (episodeName ? ' — ' + episodeName : '');
   $('#playerSub').textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
+  // Custom CineMax Loading Animation
+  const loader = $('#playerLoader');
+  const loaderTitle = $('#playerLoaderTitle');
+  function showLoader(msg) {
+    if (!loader) return;
+    loader.style.display = 'flex';
+    loader.style.opacity = '1';
+    if (loaderTitle) loaderTitle.textContent = msg || 'Connecting to Zero-Buffering Stream…';
+    clearTimeout(window._loaderTimer);
+    window._loaderTimer = setTimeout(() => {
+      loader.style.opacity = '0';
+      setTimeout(() => { loader.style.display = 'none'; }, 350);
+    }, 4000);
+  }
+  function hideLoader(delayMs = 600) {
+    setTimeout(() => {
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(() => { loader.style.display = 'none'; }, 350);
+      }
+    }, delayMs);
+  }
+  showLoader('Connecting to ' + (manifest.provider || 'Zero-Buffering Stream') + '…');
+
   // Multi-server selector setup
   const multiBadge = $('#multiAudioBadge');
   function updateMultiAudioBadge(url) {
     if (!multiBadge) return;
     const match = servers.find(s => s.url === url) || servers[0] || {};
-    if (match.id === 'reelsdownload' || match.id === 'vsembed' || match.id === 'vidfast') {
+    if (match.id === 'reelsdownload' || match.id === 'pvrplay_direct' || match.id === 'vsembed' || match.id === 'vidfast') {
       multiBadge.style.display = 'inline-flex';
       multiBadge.title = 'In-Player Multi-Audio: Click the Audio / Settings icon inside player to switch between Hindi, Tamil, Telugu, and English audio.';
     } else {
@@ -489,10 +513,12 @@ async function playStream(t, episodeId, episodeName, resumePct) {
         const selectedUrl = serverSelect.value;
         updateMultiAudioBadge(selectedUrl);
         if (manifest.type === 'embed' || selectedUrl.includes('http')) {
+          showLoader('Switching to ' + serverSelect.options[serverSelect.selectedIndex].text + '…');
           video.pause();
           video.style.display = 'none';
           if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
           iframe.removeAttribute('sandbox');
+          iframe.onload = () => hideLoader(700);
           iframe.src = selectedUrl;
           iframe.style.display = 'block';
           activateClickShield(selectedUrl);
@@ -597,6 +623,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     video.style.display = 'none';
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     iframe.removeAttribute('sandbox');
+    iframe.onload = () => hideLoader(750);
     iframe.src = manifest.url;
     iframe.style.display = 'block';
     activateClickShield(manifest.url);
@@ -612,6 +639,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       window._currentHls = hls;
       hls.loadSource(manifest.url);
       hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => hideLoader(400));
       hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
         const tracks = hls.audioTracks;
         if (tracks && tracks.length > 1 && audioSelect) {
@@ -621,6 +649,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       });
     } else {
       video.src = manifest.url;
+      video.onloadeddata = () => hideLoader(400);
       video.load();
     }
     // resume
@@ -649,6 +678,9 @@ function closeModal(id) {
   $('#' + id).classList.remove('open');
   if (!$('.modal.open')) document.body.style.overflow = '';
   if (id === 'playerModal') {
+    const loader = $('#playerLoader');
+    if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; }
+    clearTimeout(window._loaderTimer);
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     const v = $('#video'); v.pause(); v.removeAttribute('src'); v.load();
     const ifr = $('#playerIframe'); if (ifr) { ifr.src = 'about:blank'; ifr.style.display = 'none'; }
@@ -669,8 +701,8 @@ let shieldTimer = null;
 
 function activateClickShield(url) {
   if (!clickShield) return;
-  // VidLink Pro is clean & ad-free; no click shield needed
-  if (url && url.includes('vidlink.pro')) {
+  // Clean players that have direct controls & zero-popup experience
+  if (url && (url.includes('vidlink.pro') || url.includes('reelsdownload.online') || url.includes('pvrplay.fun'))) {
     clickShield.style.display = 'none';
     clearTimeout(shieldTimer);
     return;

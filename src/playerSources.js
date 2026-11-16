@@ -4,15 +4,23 @@
 const PLAYER_SOURCES = [
   {
     id: 'reelsdownload',
-    name: 'Server 1: PvrPlay / Reels (Ultra-Fast · Multi-Audio Hindi/Tamil/Telugu/English)',
+    name: 'Server 1: PvrPlay / Reels (Ultra-Fast CDN · Multi-Audio Hindi/Tamil/Telugu/English)',
     audio: 'Multi-Audio (Hindi, Tamil, Telugu, English)',
     movieUrl: (id, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}/${season}/${episode}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
     note: 'Zero-buffering multi-CDN stream with native HLS multi-audio language switching'
   },
   {
+    id: 'pvrplay_direct',
+    name: 'Server 2: PvrPlay Web Player (Direct Multi-Audio)',
+    audio: 'Multi-Audio (Hindi, English, Regional)',
+    movieUrl: (id, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/movie/${id || imdbId}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/tv/${id || imdbId}/${season}/${episode}`,
+    note: 'Direct PvrPlay web application player mirror'
+  },
+  {
     id: 'vidlink',
-    name: 'Server 2: VidLink Pro (Ad-Free / Fast 4K CDN - Recommended)',
+    name: 'Server 3: VidLink Pro (Ad-Free / Fast 4K CDN - Recommended)',
     audio: 'English / Original',
     movieUrl: (id, title, imdbId) => `https://vidlink.pro/movie/${id || imdbId}?primaryColor=e50914`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidlink.pro/tv/${id || imdbId}/${season}/${episode}?primaryColor=e50914`,
