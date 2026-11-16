@@ -367,10 +367,34 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   const iframe = $('#playerIframe');
   const serverPicker = $('#serverPicker');
   const serverSelect = $('#serverSelect');
+  const nextBtn = $('#nextEpisodeBtn');
+  const servers = manifest.servers || [];
   
   $('#playerTitle').textContent = t.title + (episodeName ? ' — ' + episodeName : '');
   $('#playerSub').textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
+  // Multi-server selector setup
+  if (servers.length > 0) {
+    if (serverPicker) serverPicker.style.display = 'flex';
+    if (serverSelect) {
+      serverSelect.innerHTML = servers.map((s, idx) => `<option value="${esc(s.url)}">${esc(s.name)}</option>`).join('');
+      serverSelect.onchange = () => {
+        const selectedUrl = serverSelect.value;
+        if (manifest.type === 'embed' || selectedUrl.includes('http')) {
+          video.pause();
+          video.style.display = 'none';
+          iframe.removeAttribute('sandbox');
+          iframe.src = selectedUrl;
+          iframe.style.display = 'block';
+          activateClickShield(selectedUrl);
+          toast('Switched server: ' + serverSelect.options[serverSelect.selectedIndex].text);
+        }
+      };
+    }
+  } else if (serverPicker) {
+    serverPicker.style.display = 'none';
+  }
+
   // Audio Selector Setup
   const audioSelect = $('#audioSelect');
   if (audioSelect && servers.length > 0) {
@@ -389,7 +413,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
       } else {
         target = servers[0];
       }
-      if (target) {
+      if (target && serverSelect) {
         serverSelect.value = target.url;
         serverSelect.dispatchEvent(new Event('change'));
         toast('🎧 Audio selected: ' + audioSelect.options[audioSelect.selectedIndex].text);
@@ -449,27 +473,6 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     }
   } else if (seriesControls) {
     seriesControls.style.display = 'none';
-  }
-
-  // Multi-server selector setup
-  const servers = manifest.servers || [];
-  if (servers.length > 0) {
-    serverPicker.style.display = 'flex';
-    serverSelect.innerHTML = servers.map((s, idx) => `<option value="${esc(s.url)}">${esc(s.name)}</option>`).join('');
-    serverSelect.onchange = () => {
-      const selectedUrl = serverSelect.value;
-      if (manifest.type === 'embed' || selectedUrl.includes('http')) {
-        video.pause();
-        video.style.display = 'none';
-        iframe.removeAttribute('sandbox');
-        iframe.src = selectedUrl;
-        iframe.style.display = 'block';
-        activateClickShield(selectedUrl);
-        toast('Switched server: ' + serverSelect.options[serverSelect.selectedIndex].text);
-      }
-    };
-  } else {
-    serverPicker.style.display = 'none';
   }
 
   if (manifest.type === 'embed') {
