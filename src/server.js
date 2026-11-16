@@ -21,7 +21,7 @@ try {
 function repairCatalogMetadata() {
   try {
     const fixes = [
-      { slug: 'rrr', tmdb: 579974, poster: 'https://image.tmdb.org/t/p/w500/wE0I6efAW4cDDmZQWtwZMOW44EJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/i0Y0wP8H6SRgjr6QmuwbtQbS24D.jpg' },
+      { slug: 'rrr', tmdb: 579974, poster: 'https://image.tmdb.org/t/p/w500/wE0I6efAW4cDDmZQWtwZMOW44EJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/d3l7kgFJyLTTQSrR4ysCk5yeVyW.jpg' },
       { slug: '3-idiots', tmdb: 20453, poster: 'https://image.tmdb.org/t/p/w500/66A9MqXOyVFCssoloscw79z8Tew.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/u7kuUaySqXBVAtqEl9vkTkAzHV9.jpg' },
       { slug: 'pk', tmdb: 297222, poster: 'https://image.tmdb.org/t/p/w500/z2x2Y4tncefsIU7h82gmUM5vnBJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/gxfvtq5eYiClS2X7hxAAPBNrbWA.jpg' },
       { slug: 'gully-boy', tmdb: 491625, poster: 'https://image.tmdb.org/t/p/w500/4RE7TD5TqEXbPKyUHcn7CSeMlrJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/gcZbciueHH7WmD03GcVZX7LYqmR.jpg' },
@@ -37,6 +37,12 @@ function repairCatalogMetadata() {
       db.prepare("UPDATE titles SET tmdb_id=?, poster_url=?, backdrop_url=? WHERE slug=? OR (title=? AND tmdb_id!=?)")
         .run(f.tmdb, f.poster, f.backdrop, f.slug, f.slug, f.tmdb);
     }
+    // Clean up accented characters / corrupted encoding in titles
+    db.prepare("UPDATE titles SET title=REPLACE(REPLACE(title, 'Bãhubali', 'Baahubali'), 'Bāhubali', 'Baahubali') WHERE title LIKE '%Bãhubali%' OR title LIKE '%Bāhubali%'").run();
+    db.prepare("UPDATE titles SET title='Baahubali: The Beginning' WHERE tmdb_id=256040").run();
+    db.prepare("UPDATE titles SET title='Baahubali: The Epic' WHERE tmdb_id=1511417").run();
+    db.prepare("UPDATE titles SET backdrop_url='https://image.tmdb.org/t/p/w1280/d3l7kgFJyLTTQSrR4ysCk5yeVyW.jpg' WHERE tmdb_id=579974 OR title='RRR'").run();
+
     // Remove old pre-2024 movies from Hero banner is_featured
     db.prepare("UPDATE titles SET is_featured=0 WHERE release_year < 2024").run();
 
@@ -68,6 +74,16 @@ function repairCatalogMetadata() {
       { name: 'Anushka Shetty', character: 'Devasena', profile: 'https://image.tmdb.org/t/p/w185/zpe6Es8kdNOXuPdXiJvqxzsmN6z.jpg' },
       { name: 'Tamannaah Bhatia', character: 'Avantika', profile: 'https://image.tmdb.org/t/p/w185/s7vN1N0c1fH4a4vB8y8n7f4K8j.jpg' },
       { name: 'Ramya Krishnan', character: 'Sivagami', profile: 'https://image.tmdb.org/t/p/w185/7C1bj7z3XhqxjDIGoCs6MFJdSVa.jpg' }
+    ]));
+    db.prepare("UPDATE titles SET cast_json=? WHERE tmdb_id=326122 OR title LIKE '%Torchbearer%'").run(JSON.stringify([
+      { name: 'Prabhas', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/u6RVP8ukgLaymeoi5VmX0JRAcCn.jpg' },
+      { name: 'Rana Daggubati', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/q0Rw0e9RogMD0zJ0Heq0GotDYoy.jpg' },
+      { name: 'Anushka Shetty', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/zpe6Es8kdNOXuPdXiJvqxzsmN6z.jpg' },
+      { name: 'S. S. Rajamouli', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/qPskSZxvoYflC8Bye4tGNBSroy5.jpg' },
+      { name: 'Ramya Krishnan', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/7C1bj7z3XhqxjDIGoCs6MFJdSVa.jpg' },
+      { name: 'Sathyaraj', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/lnlBZ7V3K3Z3OIsjCd0zkKx26L3.jpg' },
+      { name: 'Nassar', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/p3I0tSQY3C5qZW3NzFfbpjKPNL6.jpg' },
+      { name: 'Tamannaah Bhatia', character: 'Self', profile: 'https://image.tmdb.org/t/p/w185/t4WYoKiFAyO1Rhjv7O03EKmJHp4.jpg' }
     ]));
   } catch (err) {
     console.warn('[CineMax] Catalog repair check warning:', err.message);

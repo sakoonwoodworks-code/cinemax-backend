@@ -3,36 +3,36 @@
 
 const PLAYER_SOURCES = [
   {
+    id: 'reelsdownload',
+    name: 'Server 1: PvrPlay / Reels (Ultra-Fast · Multi-Audio Hindi/Tamil/Telugu/English)',
+    audio: 'Multi-Audio (Hindi, Tamil, Telugu, English)',
+    movieUrl: (id, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}/${season}/${episode}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
+    note: 'Zero-buffering multi-CDN stream with native HLS multi-audio language switching'
+  },
+  {
     id: 'vidlink',
-    name: 'Server 1: VidLink Pro (Ad-Free / Fast CDN - Recommended)',
+    name: 'Server 2: VidLink Pro (Ad-Free / Fast 4K CDN - Recommended)',
     audio: 'English / Original',
     movieUrl: (id, title, imdbId) => `https://vidlink.pro/movie/${id || imdbId}?primaryColor=e50914`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidlink.pro/tv/${id || imdbId}/${season}/${episode}?primaryColor=e50914`,
     note: 'Premium ad-free fast streaming with clean Netflix-style player'
   },
   {
-    id: 'autoembed',
-    name: 'Server 2: AutoEmbed (Fast CDN - Multi-Mirror)',
-    audio: 'English & Multi-Subs',
-    movieUrl: (id, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/movie/imdb/${imdbId}` : `https://autoembed.me/movie/tmdb/${id}`,
-    tvUrl: (id, season = 1, episode = 1, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/tv/imdb/${imdbId}/${season}/${episode}` : `https://autoembed.me/tv/tmdb/${id}/${season}/${episode}`,
-    note: 'Ultra-fast direct multi-CDN stream with instant buffering'
-  },
-  {
     id: 'vsembed',
-    name: 'Server 3: VsEmbed (Hindi Audio)',
+    name: 'Server 3: VsEmbed (Dedicated Hindi Audio)',
     audio: 'Hindi Audio',
     movieUrl: (id, title, imdbId) => `https://vsembed.su/embed/movie/${id || imdbId}?autoplay=1&ds_lang=hi`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vsembed.su/embed/tv/${id || imdbId}/${season}/${episode}?autoplay=1&ds_lang=hi`,
     note: 'Fast primary server with Hindi audio and multiple subtitles'
   },
   {
-    id: 'vidsrc_to',
-    name: 'Server 4: VidSrc Pro (HD / Dual Audio)',
-    audio: 'Dual Audio (Hindi / Eng)',
-    movieUrl: (id, title, imdbId) => `https://vidsrc.to/embed/movie/${imdbId || id}`,
-    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidsrc.to/embed/tv/${imdbId || id}/${season}/${episode}`,
-    note: 'Popular high-speed mirror with multi-language audio'
+    id: 'autoembed',
+    name: 'Server 4: AutoEmbed (Fast CDN - Multi-Mirror)',
+    audio: 'English & Multi-Subs',
+    movieUrl: (id, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/movie/imdb/${imdbId}` : `https://autoembed.me/movie/tmdb/${id}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/tv/imdb/${imdbId}/${season}/${episode}` : `https://autoembed.me/tv/tmdb/${id}/${season}/${episode}`,
+    note: 'Ultra-fast direct multi-CDN stream with instant buffering'
   },
   {
     id: 'vidfast',
@@ -41,6 +41,14 @@ const PLAYER_SOURCES = [
     movieUrl: (id, title, imdbId) => `https://vidfast.vc/movie/${id || imdbId}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidfast.vc/tv/${id || imdbId}/${season}/${episode}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
     note: 'Multi-audio tracks with Hindi, English & regional dubs'
+  },
+  {
+    id: 'vidsrc_to',
+    name: 'Server 6: VidSrc Pro (HD / Dual Audio)',
+    audio: 'Dual Audio (Hindi / Eng)',
+    movieUrl: (id, title, imdbId) => `https://vidsrc.to/embed/movie/${imdbId || id}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidsrc.to/embed/tv/${imdbId || id}/${season}/${episode}`,
+    note: 'Popular high-speed mirror with multi-language audio'
   },
   {
     id: 'vidnest',

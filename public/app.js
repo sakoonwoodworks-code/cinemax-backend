@@ -70,9 +70,6 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3600); }
 function posterUrl(u) {
   if (!u) return '';
-  if (u.startsWith('https://image.tmdb.org/') || u.startsWith('http://image.tmdb.org/')) {
-    return '/api/proxy/image?url=' + encodeURIComponent(u);
-  }
   return u;
 }
 
@@ -390,7 +387,7 @@ async function loadDetails(id, pushState = true) {
             return `
               <div class="cast-chip">
                 ${imgUrl ?
-                  `<img class="avatar-circle" src="${esc(imgUrl)}" alt="${esc(c.name)}" loading="lazy" onerror="this.outerHTML='<div class=\\'avatar-circle\\'>${initials}</div>'"/>` :
+                  `<img class="avatar-circle" src="${esc(imgUrl)}" alt="${esc(c.name)}" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.onerror=null;this.outerHTML='<div class=\\'avatar-circle\\'>${initials}</div>'"/>` :
                   `<div class="avatar-circle">${initials}</div>`
                 }
                 <div class="cast-name" title="${esc(c.name)}">${esc(c.name)}</div>
@@ -472,15 +469,29 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   $('#playerSub').textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
   // Multi-server selector setup
+  const multiBadge = $('#multiAudioBadge');
+  function updateMultiAudioBadge(url) {
+    if (!multiBadge) return;
+    const match = servers.find(s => s.url === url) || servers[0] || {};
+    if (match.id === 'reelsdownload' || match.id === 'vsembed' || match.id === 'vidfast') {
+      multiBadge.style.display = 'inline-flex';
+      multiBadge.title = 'In-Player Multi-Audio: Click the Audio / Settings icon inside player to switch between Hindi, Tamil, Telugu, and English audio.';
+    } else {
+      multiBadge.style.display = 'none';
+    }
+  }
+
   if (servers.length > 0) {
     if (serverPicker) serverPicker.style.display = 'flex';
     if (serverSelect) {
       serverSelect.innerHTML = servers.map((s, idx) => `<option value="${esc(s.url)}">${esc(s.name)}</option>`).join('');
       serverSelect.onchange = () => {
         const selectedUrl = serverSelect.value;
+        updateMultiAudioBadge(selectedUrl);
         if (manifest.type === 'embed' || selectedUrl.includes('http')) {
           video.pause();
           video.style.display = 'none';
+          if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
           iframe.removeAttribute('sandbox');
           iframe.src = selectedUrl;
           iframe.style.display = 'block';
@@ -499,22 +510,27 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     audioSelect.value = 'auto';
     audioSelect.onchange = () => {
       const val = audioSelect.value;
+      if (val.startsWith('hls_') && window._currentHls) {
+        window._currentHls.audioTrack = parseInt(val.replace('hls_', ''), 10);
+        toast('🎧 HLS Audio Track: ' + audioSelect.options[audioSelect.selectedIndex].text);
+        return;
+      }
       let target = null;
       if (val === 'hindi') {
-        target = servers.find(s => s.id === 'vsembed') || servers.find(s => s.id === 'vidfast') || servers.find(s => (s.note || '').toLowerCase().includes('hindi'));
+        target = servers.find(s => s.id === 'vsembed') || servers.find(s => s.id === 'reelsdownload') || servers.find(s => s.id === 'vidfast');
       } else if (val === 'english') {
-        target = servers.find(s => s.id === 'vidlink') || servers[0];
+        target = servers.find(s => s.id === 'vidlink') || servers.find(s => s.id === 'autoembed') || servers[0];
       } else if (val === 'dual') {
-        target = servers.find(s => s.id === 'vidsrc_to') || servers.find(s => s.id === 'vidfast');
+        target = servers.find(s => s.id === 'vidsrc_to') || servers.find(s => s.id === 'reelsdownload');
       } else if (val === 'multi') {
-        target = servers.find(s => s.id === 'vidfast') || servers.find(s => s.id === 'vsembed');
+        target = servers.find(s => s.id === 'reelsdownload') || servers.find(s => s.id === 'vidfast');
       } else {
         target = servers[0];
       }
       if (target && serverSelect) {
         serverSelect.value = target.url;
         serverSelect.dispatchEvent(new Event('change'));
-        toast('🎧 Audio selected: ' + audioSelect.options[audioSelect.selectedIndex].text);
+        toast('🎧 Audio server: ' + target.name);
       }
     };
   }
@@ -573,10 +589,13 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     seriesControls.style.display = 'none';
   }
 
+  updateMultiAudioBadge(manifest.url);
+
   if (manifest.type === 'embed') {
-    // Embed iframe player (AutoEmbed, VsEmbed, VidSrc, VidFast, etc.)
+    // Embed iframe player (PvrPlay/Reels, VidLink, VsEmbed, AutoEmbed, etc.)
     video.pause();
     video.style.display = 'none';
+    if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     iframe.removeAttribute('sandbox');
     iframe.src = manifest.url;
     iframe.style.display = 'block';
@@ -586,8 +605,24 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     iframe.src = '';
     iframe.style.display = 'none';
     video.style.display = 'block';
-    video.src = manifest.url;
-    video.load();
+    if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
+
+    if (window.Hls && Hls.isSupported() && (manifest.type === 'hls' || (manifest.url && manifest.url.includes('.m3u8')))) {
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      window._currentHls = hls;
+      hls.loadSource(manifest.url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+        const tracks = hls.audioTracks;
+        if (tracks && tracks.length > 1 && audioSelect) {
+          audioSelect.innerHTML = tracks.map((tr, idx) => `<option value="hls_${idx}">${tr.name || tr.lang || ('Track ' + (idx + 1))}</option>`).join('');
+          audioSelect.value = 'hls_' + hls.audioTrack;
+        }
+      });
+    } else {
+      video.src = manifest.url;
+      video.load();
+    }
     // resume
     try {
       const pr = await api(`/user/progress?profileId=${store.profileId}&titleId=${t.id}&episodeId=${episodeId || 0}`);
@@ -614,6 +649,7 @@ function closeModal(id) {
   $('#' + id).classList.remove('open');
   if (!$('.modal.open')) document.body.style.overflow = '';
   if (id === 'playerModal') {
+    if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     const v = $('#video'); v.pause(); v.removeAttribute('src'); v.load();
     const ifr = $('#playerIframe'); if (ifr) { ifr.src = 'about:blank'; ifr.style.display = 'none'; }
     const cs = $('#clickShield'); if (cs) cs.style.display = 'none';
