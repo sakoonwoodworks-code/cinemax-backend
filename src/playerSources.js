@@ -3,12 +3,12 @@
 
 const PLAYER_SOURCES = [
   {
-    id: 'pvrplay',
+    id: 'pvrplay_direct',
     name: '', // hidden server name as requested
-    audio: 'Multi-Audio (Hindi, Tamil, Telugu, English)',
-    movieUrl: (id, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
-    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}/${season}/${episode}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
-    note: 'Zero-buffering multi-CDN stream with native HLS multi-audio language switching'
+    audio: 'Multi-Audio (Hindi, English, Regional)',
+    movieUrl: (id, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/movie/${id || imdbId}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/tv/${id || imdbId}/${season}/${episode}`,
+    note: 'Server 2: PvrPlay Web Player (Direct Multi-Audio) - Default'
   },
   {
     id: 'reelsdownload',
@@ -16,15 +16,7 @@ const PLAYER_SOURCES = [
     audio: 'Multi-Audio (Hindi, Tamil, Telugu, English)',
     movieUrl: (id, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}/${season}/${episode}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
-    note: 'Direct multi-audio streaming engine'
-  },
-  {
-    id: 'pvrplay_direct',
-    name: '',
-    audio: 'Multi-Audio (Hindi, English, Regional)',
-    movieUrl: (id, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
-    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}/${season}/${episode}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
-    note: 'Direct PvrPlay multi-audio engine'
+    note: 'Direct multi-audio streaming engine backup'
   },
   {
     id: 'vidlink',

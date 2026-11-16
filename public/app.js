@@ -584,10 +584,24 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   }
 
   const pContainer = $('#playerFrameContainer');
-  if (pContainer) {
-    pContainer.onmousemove = showSeriesOverlay;
-    pContainer.ontouchstart = showSeriesOverlay;
+  const shield = $('#playerTopLeftShield');
+  function pingControls() {
+    showSeriesOverlay();
+    if (shield) {
+      shield.style.opacity = '1';
+      shield.style.pointerEvents = 'auto';
+      clearTimeout(window._shieldFadeTimer);
+      window._shieldFadeTimer = setTimeout(() => {
+        shield.style.opacity = '0';
+        shield.style.pointerEvents = 'none';
+      }, 4000);
+    }
   }
+  if (pContainer) {
+    pContainer.onmousemove = pingControls;
+    pContainer.ontouchstart = pingControls;
+  }
+  pingControls();
 
   if (t.kind === 'series') {
     const eps = (t.seasons || []).flatMap(s => (s.episodes || []).map(e => ({ ...e, seasonNum: s.seasonNumber || 1 })));
@@ -626,7 +640,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     video.style.display = 'none';
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     iframe.removeAttribute('sandbox');
-    iframe.onload = () => hideLoader(2500);
+    iframe.onload = () => hideLoader(3200);
     iframe.src = manifest.url;
     iframe.style.display = 'block';
     activateClickShield(manifest.url);
