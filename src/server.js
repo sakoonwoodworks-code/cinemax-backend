@@ -15,6 +15,50 @@ try {
   if (c === 0) { console.log('[CineMax] Empty catalog — running seeder…'); require('./seed'); }
 } catch (e) { console.error('[CineMax] Seed check failed:', e.message); }
 
+// Catalog Integrity & Image Accuracy Repair:
+// Automatically repairs mismatched TMDB IDs, restores correct official posters/backdrops,
+// and boosts the latest 2024–2026 megahits on the Hero banner.
+function repairCatalogMetadata() {
+  try {
+    const fixes = [
+      { slug: 'rrr', tmdb: 579974, poster: 'https://image.tmdb.org/t/p/w500/wE0I6efAW4cDDmZQWtwZMOW44EJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/i0Y0wP8H6SRgjr6QmuwbtQbS24D.jpg' },
+      { slug: '3-idiots', tmdb: 20453, poster: 'https://image.tmdb.org/t/p/w500/66A9MqXOyVFCssoloscw79z8Tew.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/u7kuUaySqXBVAtqEl9vkTkAzHV9.jpg' },
+      { slug: 'pk', tmdb: 297222, poster: 'https://image.tmdb.org/t/p/w500/z2x2Y4tncefsIU7h82gmUM5vnBJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/gxfvtq5eYiClS2X7hxAAPBNrbWA.jpg' },
+      { slug: 'gully-boy', tmdb: 491625, poster: 'https://image.tmdb.org/t/p/w500/4RE7TD5TqEXbPKyUHcn7CSeMlrJ.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/gcZbciueHH7WmD03GcVZX7LYqmR.jpg' },
+      { slug: 'kgf-chapter-2', tmdb: 587412, poster: 'https://image.tmdb.org/t/p/w500/khNVygolU0TxLIDWff5tQlAhZ23.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/nsV5Mfi9FAV4w8eDsdr7uqVswOk.jpg' },
+      { slug: 'vikram', tmdb: 743563, poster: 'https://image.tmdb.org/t/p/w500/774UV1aCURb4s4JfEFg3IEMu5Zj.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/dkIX4dSMuVqjfrPGunBJUR7K3LQ.jpg' },
+      { slug: 'drishyam-2013', tmdb: 341012, poster: 'https://image.tmdb.org/t/p/w500/1X6k036T90u8vXf60N87fHq876G.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/vI0FpC599j2H3gJ5fMmsG0tM4a9.jpg' },
+      { slug: 'nosferatu-1922', tmdb: 653, poster: 'https://image.tmdb.org/t/p/w500/520fA3tGvT3Jt7o3T0pG5c0Y3.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/z0gV3fI3WbZ3V0o8YgAWg0tM5c1.jpg' },
+      { slug: 'sacred-games', tmdb: 79352, poster: 'https://image.tmdb.org/t/p/w500/uEbNtFbK4At9WBDGap23lt1qO9n.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/qtac9X9lSLqZFbxS71347N8MiID.jpg' },
+      { slug: 'mirzapur', tmdb: 84105, poster: 'https://image.tmdb.org/t/p/w500/p0qM8hhlMF5DuxHBzl2EZR6TehX.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/3dV7pWAdwIPKR2lMIACMfObXdgK.jpg' },
+      { slug: 'paatal-lok', tmdb: 103051, poster: 'https://image.tmdb.org/t/p/w500/8Hcq3HoJE4shH7BWkp9UNSFCE3O.jpg', backdrop: 'https://image.tmdb.org/t/p/w1280/bVKoX1AiN1jjUcvC7BkXypJPF2X.jpg' }
+    ];
+    for (const f of fixes) {
+      db.prepare("UPDATE titles SET tmdb_id=?, poster_url=?, backdrop_url=? WHERE slug=? OR (title=? AND tmdb_id!=?)")
+        .run(f.tmdb, f.poster, f.backdrop, f.slug, f.slug, f.tmdb);
+    }
+    // Remove old pre-2024 movies from Hero banner is_featured
+    db.prepare("UPDATE titles SET is_featured=0 WHERE release_year < 2024").run();
+
+    // Feature top 2024 mega blockbusters for the hero banner
+    const topHits = [
+      { title: 'Deadpool & Wolverine', pop: 650 },
+      { title: 'Stree 2', pop: 640 },
+      { title: 'Dune: Part Two', pop: 630 },
+      { title: 'Pushpa 2 - The Rule', pop: 620 },
+      { title: 'Kalki 2898-AD', pop: 610 },
+      { title: 'Panchayat', pop: 600 }
+    ];
+    for (const h of topHits) {
+      db.prepare("UPDATE titles SET is_featured=1, popularity=? WHERE title LIKE ?")
+        .run(h.pop, '%' + h.title + '%');
+    }
+  } catch (err) {
+    console.warn('[CineMax] Catalog repair check warning:', err.message);
+  }
+}
+repairCatalogMetadata();
+
 // Auto-sync TMDB real posters and latest trending titles
 let isSyncing = false;
 async function triggerAutoSync() {

@@ -132,36 +132,40 @@ document.addEventListener('click', e => { if (!e.target.closest('.account')) $('
 const VIEWS = ['home', 'grid', 'mylist', 'downloads', 'search', 'admin'];
 function go(view) {
   for (const v of VIEWS) $('#view-' + v).classList.toggle('active', v === view);
-  $$('.topnav button').forEach(b => b.classList.toggle('active', b.dataset.nav === view || (view === 'grid' && (b.dataset.nav === 'movies' || b.dataset.nav === 'series')) ));
+  updateNavHighlights(view);
   window.scrollTo({ top: 0 });
   if (view === 'mylist') loadMyList();
   if (view === 'downloads') loadDownloads();
   if (view === 'admin') loadAdmin();
 }
+
+function updateNavHighlights(view) {
+  if (view === 'home') {
+    const curKind = state.homeKind || 'home';
+    const match = curKind === 'movie' ? 'movies' : curKind;
+    $$('.topnav button').forEach(b => b.classList.toggle('active', b.dataset.nav === match));
+    $$('#homeFilterBar button[data-home-kind]').forEach(x => x.classList.toggle('active', x.dataset.homeKind === (state.homeKind || '')));
+  } else {
+    $$('.topnav button').forEach(b => b.classList.toggle('active', b.dataset.nav === view));
+  }
+}
+
 $$('.topnav button').forEach(b => b.addEventListener('click', () => {
   const nav = b.dataset.nav;
-  if (nav === 'movies') return openGrid('movie', 'Movies');
-  if (nav === 'series') return openGrid('series', 'Web Series & OTT Originals');
-  if (nav === 'bollywood' || nav === 'hollywood' || nav === 'dubbed') {
-    state.homeKind = nav;
-    $$('#homeFilterBar button[data-home-kind]').forEach(x => x.classList.toggle('active', x.dataset.homeKind === nav));
-    go('home');
-    return bootData();
-  }
-  if (nav === 'home') {
-    state.homeKind = '';
-    $$('#homeFilterBar button[data-home-kind]').forEach(x => x.classList.toggle('active', x.dataset.homeKind === ''));
+  if (nav === 'home' || nav === 'bollywood' || nav === 'hollywood' || nav === 'dubbed' || nav === 'series' || nav === 'movies') {
+    state.homeKind = nav === 'home' ? '' : (nav === 'movies' ? 'movie' : nav);
+    state.heroIdx = 0;
     go('home');
     return bootData();
   }
   go(nav);
 }));
 
-// Home Category Filter Bar (All / Movies / Web Series)
+// Home Category Filter Bar (All / Bollywood / Hollywood / Hindi Dubbed / Web Series / Movies)
 $$('#homeFilterBar button[data-home-kind]').forEach(b => b.addEventListener('click', async () => {
-  $$('#homeFilterBar button[data-home-kind]').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
   state.homeKind = b.dataset.homeKind || '';
+  state.heroIdx = 0;
+  updateNavHighlights('home');
   await bootData();
 }));
 
@@ -209,8 +213,12 @@ function renderHero() {
   if (!f.length) { wrap.innerHTML = '<div class="hero-kicker">CINEMAX</div><h1 class="hero-title">Your cinema is loading…</h1>'; return; }
   const t = f[state.heroIdx % f.length];
   $('#heroBackdrop').style.backgroundImage = `url('${esc(t.backdrop)}')`;
+  const sectionLabel = state.homeKind === 'bollywood' ? '🇮🇳 BOLLYWOOD BLOCKBUSTER' : 
+    (state.homeKind === 'hollywood' ? '🎬 HOLLYWOOD BLOCKBUSTER' : 
+    (state.homeKind === 'dubbed' ? '⚡ HINDI DUBBED HIT' : 
+    (t.kind === 'series' ? '📺 CINEMAX SERIES' : '🍿 CINEMAX BLOCKBUSTER')));
   wrap.innerHTML = `
-    <div class="hero-kicker">${t.kind === 'series' ? 'CINEMAX SERIES' : 'CINEMAX FEATURE'} · #${state.heroIdx % f.length + 1} POPULAR</div>
+    <div class="hero-kicker">${sectionLabel} · #${state.heroIdx % f.length + 1} LATEST RELEASE</div>
     <h1 class="hero-title">${esc(t.title)}</h1>
     <div class="hero-meta">
       <span class="badge-rating">★ ${t.rating ? Number(t.rating).toFixed(1) : 'NR'}</span>
