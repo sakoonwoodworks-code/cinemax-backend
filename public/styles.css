@@ -418,3 +418,16 @@ button{font-family:var(--font);cursor:pointer;border:none;background:none;color:
 #loaderPlayBtn:active {
   transform: scale(0.95);
 }
+#loaderBypassBtn:hover {
+  color: #fff !important;
+  border-color: rgba(229,9,20,0.6) !important;
+  background: rgba(229,9,20,0.15) !important;
+}
+.re-cover-btn:hover {
+  background: rgba(30, 30, 38, 0.95) !important;
+  border-color: rgba(229, 9, 20, 0.6) !important;
+  transform: translateX(-50%) scale(1.05) !important;
+}
+.re-cover-btn:active {
+  transform: translateX(-50%) scale(0.96) !important;
+}

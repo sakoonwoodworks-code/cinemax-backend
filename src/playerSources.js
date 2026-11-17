@@ -6,8 +6,8 @@ const PLAYER_SOURCES = [
     id: 'pvrplay_direct',
     name: '', // hidden server name as requested
     audio: 'Multi-Audio (Hindi, English, Regional)',
-    movieUrl: (id, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/movie/${id || imdbId}#__mig=${encodeURIComponent(JSON.stringify({"sm:announce-dismissed":"{\"ts\":9999999999999}"}))}`,
-    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/tv/${id || imdbId}/${season}/${episode}#__mig=${encodeURIComponent(JSON.stringify({"sm:announce-dismissed":"{\"ts\":9999999999999}"}))}`,
+    movieUrl: (id, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/movie/${id || imdbId}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/tv/${id || imdbId}/${season}/${episode}`,
     note: 'Server 2: PvrPlay Web Player (Direct Multi-Audio) - Default'
   },
   {

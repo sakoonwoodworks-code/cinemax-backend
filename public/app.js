@@ -470,12 +470,14 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   const pSub = $('#playerSub');
   if (pSub) pSub.textContent = `${manifest.label || ''} · ${manifest.provider || ''} · ${manifest.license || 'Multi-Source'}`;
   
-  // Custom CineMax Loading Animation & Big Play Button System
+  // Custom CineMax Loading Animation & Sound/Playback Detector
   const loader = $('#playerLoader');
   const loaderTitle = $('#playerLoaderTitle');
   const loaderSub = $('#playerLoaderSub');
   const loaderSpinner = $('#loaderSpinner');
   const loaderPlayBtn = $('#loaderPlayBtn');
+  const loaderBypassBtn = $('#loaderBypassBtn');
+  const reCoverBtn = $('#reCoverShieldBtn');
   let streamReady = false;
   let retryCount = 0;
   let currentServerIdx = 0;
@@ -485,60 +487,100 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     streamReady = false;
     clearTimeout(window._readyTimer);
     clearTimeout(window._loaderTimer);
+    clearTimeout(window._autoRetryTimer);
     loader.style.display = 'flex';
     loader.style.opacity = '1';
+    loader.style.pointerEvents = 'auto';
     if (loaderSpinner) loaderSpinner.style.display = 'block';
     if (loaderPlayBtn) loaderPlayBtn.style.display = 'none';
+    if (loaderBypassBtn) loaderBypassBtn.style.display = 'none';
     if (loaderTitle) loaderTitle.textContent = titleMsg || 'Movie is on the way…';
     if (loaderSub) loaderSub.textContent = subMsg || 'Connecting to Zero-Buffering Multi-Audio Stream…';
   }
 
   function setStreamReady() {
     if (streamReady) return;
-    streamReady = true;
     if (loaderSpinner) loaderSpinner.style.display = 'none';
     if (loaderPlayBtn) {
       loaderPlayBtn.style.display = 'flex';
       loaderPlayBtn.style.animation = 'cinemaxPulse 1.6s ease-in-out infinite';
     }
-    if (loaderTitle) loaderTitle.textContent = 'Ready to Watch';
-    if (loaderSub) loaderSub.textContent = 'Click Play to begin full-screen movie';
+    if (loaderBypassBtn) loaderBypassBtn.style.display = 'inline-block';
+    if (loaderTitle) loaderTitle.textContent = 'Ready to Play';
+    if (loaderSub) loaderSub.textContent = 'Tap Play to start movie with sound';
   }
 
   function hideLoader(delayMs = 0) {
     clearTimeout(window._readyTimer);
     clearTimeout(window._loaderTimer);
+    clearTimeout(window._autoRetryTimer);
     window._loaderTimer = setTimeout(() => {
       if (loader) {
         loader.style.opacity = '0';
+        loader.style.pointerEvents = 'none';
         setTimeout(() => {
           loader.style.display = 'none';
           if (loaderPlayBtn) loaderPlayBtn.style.display = 'none';
+          if (loaderBypassBtn) loaderBypassBtn.style.display = 'none';
           if (loaderSpinner) loaderSpinner.style.display = 'block';
-        }, 400);
+        }, 450);
       }
+      if (reCoverBtn) reCoverBtn.style.display = 'flex';
     }, delayMs);
   }
 
   if (loaderPlayBtn) {
     loaderPlayBtn.onclick = (e) => {
       e.stopPropagation();
+      if (loaderTitle) loaderTitle.textContent = 'Starting stream with sound…';
+      if (loaderSpinner) loaderSpinner.style.display = 'block';
+      if (loaderPlayBtn) loaderPlayBtn.style.display = 'none';
+      try { iframe.focus(); } catch {}
+      hideLoader(streamReady ? 0 : 1200);
+    };
+  }
+
+  if (loaderBypassBtn) {
+    loaderBypassBtn.onclick = (e) => {
+      e.stopPropagation();
       hideLoader(0);
       try { iframe.focus(); } catch {}
     };
   }
 
-  if (loader) {
-    loader.onclick = () => {
-      if (streamReady) hideLoader(0);
+  if (reCoverBtn) {
+    reCoverBtn.onclick = (e) => {
+      e.stopPropagation();
+      showLoader('Movie is on the way…', 'Buffering multi-audio stream in background…');
+      if (streamReady) hideLoader(1600);
     };
   }
 
-  window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'CINEMAX_STREAM_READY') {
-      setStreamReady();
+  // Audio & Playback Frame Detector:
+  // Detects when the underlying player has actually loaded and started playing audio/video
+  function onPlayerStreamMessage(e) {
+    if (!e || !e.data) return;
+    // pvr:resume is emitted by the embedded JWPlayer when timeupdate/playback is active
+    if (e.data.type === 'pvr:resume') {
+      const val = e.data.value;
+      if (val && typeof val.t === 'number') {
+        console.log('[CineMax Stream Detector] Audio & video confirmed active at', val.t, 's');
+        streamReady = true;
+        hideLoader(350);
+      }
     }
-  });
+    if (e.data.type === 'pvr:close') {
+      closeModal('playerModal');
+    }
+    if (e.data.type === 'CINEMAX_STREAM_READY') {
+      streamReady = true;
+      hideLoader(200);
+    }
+  }
+
+  window.removeEventListener('message', window._cmxPlayerListener);
+  window._cmxPlayerListener = onPlayerStreamMessage;
+  window.addEventListener('message', onPlayerStreamMessage);
 
   function retryStreamInBackground(reason) {
     console.warn('[CineMax Auto-Retry] Background stream issue:', reason);
@@ -587,7 +629,13 @@ async function playStream(t, episodeId, episodeName, resumePct) {
           video.style.display = 'none';
           if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
           iframe.removeAttribute('sandbox');
-          iframe.onload = () => hideLoader(700);
+          iframe.onload = () => {
+            clearTimeout(window._readyTimer);
+            clearTimeout(window._autoRetryTimer);
+            window._readyTimer = setTimeout(() => {
+              if (!streamReady) setStreamReady();
+            }, 8500);
+          };
           iframe.src = selectedUrl;
           iframe.style.display = 'block';
           activateClickShield(selectedUrl);
@@ -708,10 +756,16 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     iframe.removeAttribute('sandbox');
     iframe.onload = () => {
       clearTimeout(window._readyTimer);
-      // Wait 6.5s so PvrPlay's internal countdown and initial handshake finish completely in the background
+      clearTimeout(window._autoRetryTimer);
+      // Wait 8.5s so PvrPlay's internal 5s search phase finishes completely in the background
+      // If pvr:resume hasn't already unlocked playback via sound detection, present the glowing Play button
       window._readyTimer = setTimeout(() => {
-        setStreamReady();
-      }, 6500);
+        if (!streamReady) setStreamReady();
+      }, 8500);
+      // Auto-retry in background if no audio/video plays within 16s
+      window._autoRetryTimer = setTimeout(() => {
+        if (!streamReady) retryStreamInBackground('No audio playback detected within 16s');
+      }, 16000);
     };
     iframe.onerror = () => retryStreamInBackground('iframe.onerror');
     iframe.src = manifest.url;
@@ -775,7 +829,10 @@ function closeModal(id) {
     if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; }
     clearTimeout(window._loaderTimer);
     clearTimeout(window._readyTimer);
+    clearTimeout(window._autoRetryTimer);
     clearTimeout(window._shieldFadeTimer);
+    const reCoverBtn = $('#reCoverShieldBtn');
+    if (reCoverBtn) reCoverBtn.style.display = 'none';
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     const v = $('#video'); v.pause(); v.removeAttribute('src'); v.load();
     const ifr = $('#playerIframe'); if (ifr) { ifr.src = 'about:blank'; ifr.style.display = 'none'; }
