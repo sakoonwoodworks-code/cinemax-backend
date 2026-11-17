@@ -6,9 +6,17 @@ const PLAYER_SOURCES = [
     id: 'pvrplay_direct',
     name: '', // hidden server name as requested
     audio: 'Multi-Audio (Hindi, English, Regional)',
+    movieUrl: (id, title, imdbId) => `/player/stream/movie/${id || imdbId}`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `/player/stream/series/${id || imdbId}?season=${season}&episode=${episode}`,
+    note: 'Server 2: PvrPlay Clean Multi-Audio Stream Gateway'
+  },
+  {
+    id: 'pvrplay_raw',
+    name: '',
+    audio: 'Multi-Audio (Hindi, English, Regional)',
     movieUrl: (id, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/movie/${id || imdbId}`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/tv/${id || imdbId}/${season}/${episode}`,
-    note: 'Server 2: PvrPlay Web Player (Direct Multi-Audio) - Default'
+    note: 'Server 2: PvrPlay Direct Mirror'
   },
   {
     id: 'reelsdownload',

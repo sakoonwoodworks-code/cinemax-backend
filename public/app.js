@@ -534,6 +534,12 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     };
   }
 
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'CINEMAX_STREAM_READY') {
+      setStreamReady();
+    }
+  });
+
   function retryStreamInBackground(reason) {
     console.warn('[CineMax Auto-Retry] Background stream issue:', reason);
     if (retryCount >= 4) return;
