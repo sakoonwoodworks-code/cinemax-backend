@@ -4,31 +4,31 @@
 const PLAYER_SOURCES = [
   {
     id: 'pvrplay_direct',
-    name: '', // hidden server name as requested
+    name: 'Server 1: PvrPlay Web Player (Direct Multi-Audio)',
     audio: 'Multi-Audio (Hindi, English, Regional)',
     movieUrl: (id, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/movie/${id || imdbId}`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://dbhnmkjasgbvsdkjbskkvnskjbfckldsnckjbckjnxkjcsknxjvkjxnvcxknvku.pvrplay.fun/watch/tv/${id || imdbId}/${season}/${episode}`,
-    note: 'Server 2: PvrPlay Web Player (Direct Multi-Audio) - Default'
+    note: 'Server 1: PvrPlay Web Player (Direct Multi-Audio) - Default'
+  },
+  {
+    id: 'vidlink',
+    name: 'Server 2: VidLink Pro (Ad-Free / Fast 4K CDN - Recommended)',
+    audio: 'English / Multi-Audio',
+    movieUrl: (id, title, imdbId) => `https://vidlink.pro/movie/${id || imdbId}?primaryColor=e50914`,
+    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidlink.pro/tv/${id || imdbId}/${season}/${episode}?primaryColor=e50914`,
+    note: 'Premium ad-free fast streaming with clean Netflix-style player'
   },
   {
     id: 'reelsdownload',
-    name: '',
+    name: 'Server 3: Reels Player (Direct Multi-Audio Backup)',
     audio: 'Multi-Audio (Hindi, Tamil, Telugu, English)',
     movieUrl: (id, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://embed.reelsdownload.online/player/${id || imdbId}/${season}/${episode}?key=k_bf0ab0853bce46e3d90b256b&close=1`,
     note: 'Direct multi-audio streaming engine backup'
   },
   {
-    id: 'vidlink',
-    name: 'Server 3: VidLink Pro (Ad-Free / Fast 4K CDN - Recommended)',
-    audio: 'English / Original',
-    movieUrl: (id, title, imdbId) => `https://vidlink.pro/movie/${id || imdbId}?primaryColor=e50914`,
-    tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidlink.pro/tv/${id || imdbId}/${season}/${episode}?primaryColor=e50914`,
-    note: 'Premium ad-free fast streaming with clean Netflix-style player'
-  },
-  {
     id: 'vsembed',
-    name: 'Server 3: VsEmbed (Dedicated Hindi Audio)',
+    name: 'Server 4: VsEmbed (Dedicated Hindi Audio)',
     audio: 'Hindi Audio',
     movieUrl: (id, title, imdbId) => `https://vsembed.su/embed/movie/${id || imdbId}?autoplay=1&ds_lang=hi`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vsembed.su/embed/tv/${id || imdbId}/${season}/${episode}?autoplay=1&ds_lang=hi`,
@@ -36,7 +36,7 @@ const PLAYER_SOURCES = [
   },
   {
     id: 'autoembed',
-    name: 'Server 4: AutoEmbed (Fast CDN - Multi-Mirror)',
+    name: 'Server 5: AutoEmbed (Fast CDN - Multi-Mirror)',
     audio: 'English & Multi-Subs',
     movieUrl: (id, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/movie/imdb/${imdbId}` : `https://autoembed.me/movie/tmdb/${id}`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => (imdbId && String(imdbId).startsWith('tt')) ? `https://autoembed.me/tv/imdb/${imdbId}/${season}/${episode}` : `https://autoembed.me/tv/tmdb/${id}/${season}/${episode}`,
@@ -44,7 +44,7 @@ const PLAYER_SOURCES = [
   },
   {
     id: 'vidfast',
-    name: 'Server 5: VidFast (Multi-Audio & Dubs)',
+    name: 'Server 6: VidFast (Multi-Audio & Dubs)',
     audio: 'Multi-Audio (Hindi / Dubs)',
     movieUrl: (id, title, imdbId) => `https://vidfast.vc/movie/${id || imdbId}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidfast.vc/tv/${id || imdbId}/${season}/${episode}?autoPlay=true&poster=true&title=true&pip=hide&theme=e50914&sub=hi`,
@@ -52,7 +52,7 @@ const PLAYER_SOURCES = [
   },
   {
     id: 'vidsrc_to',
-    name: 'Server 6: VidSrc Pro (HD / Dual Audio)',
+    name: 'Server 7: VidSrc Pro (HD / Dual Audio)',
     audio: 'Dual Audio (Hindi / Eng)',
     movieUrl: (id, title, imdbId) => `https://vidsrc.to/embed/movie/${imdbId || id}`,
     tvUrl: (id, season = 1, episode = 1, title, imdbId) => `https://vidsrc.to/embed/tv/${imdbId || id}/${season}/${episode}`,

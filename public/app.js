@@ -477,7 +477,7 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   const loaderSpinner = $('#loaderSpinner');
   const loaderPlayBtn = $('#loaderPlayBtn');
   const loaderBypassBtn = $('#loaderBypassBtn');
-  const reCoverBtn = $('#reCoverShieldBtn');
+  const dismissTgBtn = $('#dismissTelegramBtn');
   let streamReady = false;
   let retryCount = 0;
   let currentServerIdx = 0;
@@ -525,7 +525,6 @@ async function playStream(t, episodeId, episodeName, resumePct) {
           if (loaderSpinner) loaderSpinner.style.display = 'block';
         }, 450);
       }
-      if (reCoverBtn) reCoverBtn.style.display = 'flex';
     }, delayMs);
   }
 
@@ -548,11 +547,14 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     };
   }
 
-  if (reCoverBtn) {
-    reCoverBtn.onclick = (e) => {
+  if (dismissTgBtn) {
+    dismissTgBtn.onclick = (e) => {
       e.stopPropagation();
-      showLoader('Movie is on the way…', 'Buffering multi-audio stream in background…');
-      if (streamReady) hideLoader(1600);
+      dismissTgBtn.style.display = 'none';
+      try {
+        iframe.focus();
+      } catch {}
+      toast('Telegram popup dismissed.');
     };
   }
 
@@ -586,14 +588,17 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     console.warn('[CineMax Auto-Retry] Background stream issue:', reason);
     if (retryCount >= 4) return;
     retryCount++;
-    showLoader('Movie is on the way…', 'Optimizing multi-audio stream connection…');
+    showLoader('Movie is on the way…', 'Switching to next server mirror…');
     setTimeout(() => {
       if (servers.length > 1) {
         currentServerIdx = (currentServerIdx + 1) % servers.length;
         const nextServer = servers[currentServerIdx];
         if (nextServer && iframe) {
           console.log('[CineMax Auto-Retry] Switching to mirror:', nextServer.name || nextServer.id);
+          if (serverSelect) serverSelect.value = nextServer.url;
+          updateMultiAudioBadge(nextServer.url);
           iframe.src = nextServer.url;
+          toast('Switched to ' + (nextServer.name || 'mirror server'));
         }
       } else if (iframe) {
         iframe.src = iframe.src;
@@ -606,13 +611,21 @@ async function playStream(t, episodeId, episodeName, resumePct) {
   // Multi-server selector setup
   const multiBadge = $('#multiAudioBadge');
   function updateMultiAudioBadge(url) {
-    if (!multiBadge) return;
     const match = servers.find(s => s.url === url) || servers[0] || {};
-    if (match.id === 'reelsdownload' || match.id === 'pvrplay_direct' || match.id === 'vsembed' || match.id === 'vidfast') {
-      multiBadge.style.display = 'inline-flex';
-      multiBadge.title = 'In-Player Multi-Audio: Click the Audio / Settings icon inside player to switch between Hindi, Tamil, Telugu, and English audio.';
-    } else {
-      multiBadge.style.display = 'none';
+    if (multiBadge) {
+      if (match.id === 'reelsdownload' || match.id === 'pvrplay_direct' || match.id === 'vsembed' || match.id === 'vidfast') {
+        multiBadge.style.display = 'inline-flex';
+        multiBadge.title = 'In-Player Multi-Audio: Click the Audio / Settings icon inside player to switch between Hindi, Tamil, Telugu, and English audio.';
+      } else {
+        multiBadge.style.display = 'none';
+      }
+    }
+    if (dismissTgBtn) {
+      if (match.id === 'pvrplay_direct' || match.id === 'reelsdownload') {
+        dismissTgBtn.style.display = 'inline-flex';
+      } else {
+        dismissTgBtn.style.display = 'none';
+      }
     }
   }
 
@@ -831,8 +844,8 @@ function closeModal(id) {
     clearTimeout(window._readyTimer);
     clearTimeout(window._autoRetryTimer);
     clearTimeout(window._shieldFadeTimer);
-    const reCoverBtn = $('#reCoverShieldBtn');
-    if (reCoverBtn) reCoverBtn.style.display = 'none';
+    const dtBtn = $('#dismissTelegramBtn');
+    if (dtBtn) dtBtn.style.display = 'none';
     if (window._currentHls) { window._currentHls.destroy(); window._currentHls = null; }
     const v = $('#video'); v.pause(); v.removeAttribute('src'); v.load();
     const ifr = $('#playerIframe'); if (ifr) { ifr.src = 'about:blank'; ifr.style.display = 'none'; }
