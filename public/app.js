@@ -708,9 +708,10 @@ async function playStream(t, episodeId, episodeName, resumePct) {
     iframe.removeAttribute('sandbox');
     iframe.onload = () => {
       clearTimeout(window._readyTimer);
+      // Wait 6.5s so PvrPlay's internal countdown and initial handshake finish completely in the background
       window._readyTimer = setTimeout(() => {
         setStreamReady();
-      }, 4200);
+      }, 6500);
     };
     iframe.onerror = () => retryStreamInBackground('iframe.onerror');
     iframe.src = manifest.url;
